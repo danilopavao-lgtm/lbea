@@ -385,6 +385,25 @@ select option{background:var(--bg2);color:var(--text)}
   </div>
 </div>
 
+<!-- NAME PICKER — shown on first login -->
+<div id="name-picker-screen" style="display:none">
+  <div class="login-screen">
+    <div class="logo"><svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:30px;height:30px"><rect width="36" height="36" rx="9" fill="#378ADD"/><text y="26" x="18" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="800" font-size="15" fill="white">LB</text></svg> LBEA Reservas</div>
+    <h2>Como quer ser identificado?</h2>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Este nome aparecerá nas reservas e para os outros usuários.</p>
+    <div class="field">
+      <label>Seu nome no laboratório</label>
+      <input type="text" id="picker-name" placeholder="ex: Camilla, Luís Victor, Tom..." autocomplete="off"
+        onkeydown="if(event.key==='Enter')confirmName()">
+    </div>
+    <div id="picker-error" style="display:none;margin-bottom:8px"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;margin-top:4px" onclick="confirmName()" id="confirm-name-btn">
+      Confirmar nome e entrar
+    </button>
+    <p style="font-size:11px;color:var(--text3);margin-top:14px;text-align:center">Você poderá alterar seu nome depois nas configurações do perfil.</p>
+  </div>
+</div>
+
 <!-- ═══════════════════════════════════════ MAIN APP -->
 <div id="app" style="display:none">
   <div class="app-shell">
@@ -894,8 +913,9 @@ window.onload = async function(){
       hide('loading-screen');
       if(user){
         firebaseUser = user;
-        await loadOrCreateProfile(user);
-        startApp();
+        const needsPicker = await loadOrCreateProfile(user);
+        if(!needsPicker) startApp();
+        // If needsPicker is true, confirmName() will call startApp() after
       } else {
         firebaseUser = null;
         currentUser = null;
@@ -913,31 +933,73 @@ window.onload = async function(){
 async function loadOrCreateProfile(user){
   const ref = db.collection('users').doc(user.uid);
   const snap = await ref.get();
-  await loadUsers(); // refresh full users list (needed to know if first user = admin)
-  // Danilo's email is always admin regardless
+  await loadUsers();
   const ADMIN_EMAILS = ['danilopavao@usp.br'];
 
   if(snap.exists){
     const data = snap.data();
-    // Ensure designated admins always have admin flag
     if(ADMIN_EMAILS.includes(user.email) && !data.isAdmin){
       await ref.update({isAdmin: true});
       data.isAdmin = true;
     }
     currentUser = {id:user.uid, ...data};
+    // Existing user — go straight to app
+    return false; // false = no name picker needed
   } else {
-    // First user OR designated admin email = isAdmin true
-    const isAdmin = users.length===0 || ADMIN_EMAILS.includes(user.email);
-    const profile = {
-      name: user.displayName || user.email.split('@')[0],
+    // New user — show name picker
+    const suggestedName = user.displayName || user.email.split('@')[0];
+    const inp = document.getElementById('picker-name');
+    if(inp) inp.value = suggestedName;
+    hide('login-screen');
+    show('name-picker-screen');
+    // Store partial profile data for later
+    window._pendingProfile = {
+      uid: user.uid,
       email: user.email,
-      isAdmin,
+      isAdmin: users.length===0 || ADMIN_EMAILS.includes(user.email),
       authProvider: user.providerData[0]?.providerId||'google.com',
+    };
+    return true; // true = name picker shown
+  }
+}
+
+async function confirmName(){
+  const name = document.getElementById('picker-name').value.trim();
+  const errEl = document.getElementById('picker-error');
+  errEl.style.display='none';
+
+  if(!name || name.length < 2){
+    errEl.innerHTML='<div class="alert alert-danger">⚠️ Informe um nome com pelo menos 2 caracteres.</div>';
+    errEl.style.display='block'; return;
+  }
+  // Check for duplicate name
+  if(users.find(u=>u.name.toLowerCase()===name.toLowerCase())){
+    errEl.innerHTML='<div class="alert alert-danger">⚠️ Já existe um usuário com esse nome. Escolha outro.</div>';
+    errEl.style.display='block'; return;
+  }
+
+  const btn = document.getElementById('confirm-name-btn');
+  btn.textContent='Entrando...'; btn.disabled=true;
+
+  try{
+    const p = window._pendingProfile;
+    const profile = {
+      name,
+      email: p.email,
+      isAdmin: p.isAdmin,
+      authProvider: p.authProvider,
       createdAt: new Date().toISOString()
     };
-    await ref.set(profile);
-    currentUser = {id:user.uid, ...profile};
+    await db.collection('users').doc(p.uid).set(profile);
+    currentUser = {id:p.uid, ...profile};
     await loadUsers();
+    window._pendingProfile = null;
+    hide('name-picker-screen');
+    startApp();
+  }catch(err){
+    errEl.innerHTML=`<div class="alert alert-danger">Erro ao salvar: ${err.message}</div>`;
+    errEl.style.display='block';
+    btn.textContent='Confirmar nome e entrar'; btn.disabled=false;
   }
 }
 
@@ -1030,6 +1092,8 @@ async function listenColCounters(){
 
 function logout(){
   if(!confirm(`Sair da conta de ${currentUser?.name||'usuário'}?`))return;
+  window._pendingProfile=null;
+  hide('name-picker-screen');
   auth.signOut();
 }
 
@@ -1575,13 +1639,39 @@ async function deleteBooking(){
   btn.textContent='Excluindo...';
   btn.disabled=true;
   try{
+    // Find the booking before deleting
+    const b=bookings.find(x=>x.id===editingId);
     await db.collection('bookings').doc(editingId).delete();
+
+    // Decrement column counter only if booking date is today or future
+    // (past bookings already happened — counter stays)
+    if(b){
+      const today=fmtDate(new Date());
+      const bookingDate=b.date||b.startDate||'';
+      if(bookingDate>=today){
+        const colsToDecrement=[];
+        const eqObj=eqById(b.equipment);
+        if(eqObj&&eqObj.cat==='coluna') colsToDecrement.push(b.equipment);
+        if(b.comboColumn&&b.comboColumn!=='_cromatografia') colsToDecrement.push(b.comboColumn);
+        for(const cid of colsToDecrement){
+          await decrementColUse(cid);
+        }
+      }
+    }
     closeModal();
   }catch(err){
     alert('Erro ao excluir: '+err.message);
     btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg> Excluir';
     btn.disabled=false;
   }
+}
+
+async function decrementColUse(colId){
+  const ref=db.collection('colCounters').doc(colId);
+  const snap=await ref.get();
+  if(!snap.exists)return;
+  const cur=snap.data().uses||0;
+  if(cur>0) await ref.update({uses:cur-1});
 }
 
 function showConflict(msg){
