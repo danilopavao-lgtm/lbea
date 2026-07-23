@@ -1244,11 +1244,11 @@ function calCell(dt,dim,today){
     const userShort=esc((b.user||'').split(' ')[0]);
     const ei=equilInfoFor(b);
     const isEquilDay=ei&&ei.date===ds&&ds!==b.date;
-    const evLabel=isEquilDay?('🌙 '+userShort)
+    const evLabel=isEquilDay?('🌙 '+userShort+' →')
                  :b.bookingType==='manutencao'?('🔧 '+userShort)
                  :(userShort+': '+esc(label));
     const tooltip=isEquilDay
-      ? esc(`${b.user} — equilibração overnight de ${eqName(ei.col)} em ${eqName(b.equipment)}, a partir das ${ei.start} (corrida em ${fmtBR(b.date)})`)
+      ? esc(`${b.user} — equilibração overnight de ${eqName(ei.col)} em ${eqName(b.equipment)}. Ocupado sem interrupção: ${(equilSpan(b)||{}).texto||''}`)
       : esc(b.user+' — '+eqName(b.equipment)+(b.protein?' ('+b.protein+')':''));
     chips+=`<div class="ev ${evCls}" title="${tooltip}">${evLabel}</div>`;
   });
@@ -1448,7 +1448,11 @@ function renderEquilPreview(){
   const start=document.getElementById('bk-equil-start')?.value||EQUIL_ON_START_PADRAO;
   const col=document.getElementById('bk-col')?.value;
   const nome=(col&&col!=='_cromatografia')?eqName(col):'a coluna';
-  el.textContent=`Bloqueia ${fmtBR(d)}, das ${start} às ${EQUIL_ON_FIM} — ${nome} + ${eqName(document.getElementById('bk-eq').value)}.`;
+  const fim=(selectedPeriod&&selectedPeriod!=='multidias')
+    ? (PERIOD_RANGES[selectedPeriod]?PERIOD_RANGES[selectedPeriod][1]
+       :(selectedPeriod==='custom'?document.getElementById('bk-end').value:''))
+    : (document.getElementById('bk-date-end')?.value?fmtBR(document.getElementById('bk-date-end').value):'');
+  el.textContent=`Reserva única: de ${fmtBR(d)} às ${start} até ${fmtBR(base)}${fim?' às '+fim:''}, sem interrupção — ${nome} + ${eqName(document.getElementById('bk-eq').value)}.`;
 }
 
 function toggleOvernight(cb){
@@ -1648,14 +1652,43 @@ function occupancies(b){
       .forEach(d=>{ if(d) out.push({eq:col,date:d,from:cs,to:ce}); });
   }
 
-  // Equilibração overnight: ÄKTA + coluna ocupadas no dia anterior
+  // Equilibração overnight: bloco ÚNICO e contínuo, da véspera até o
+  // início da corrida. Sem isso a madrugada ficava aberta, como se a
+  // equilibração parasse à meia-noite.
   const ei=equilInfoFor(b);
   if(ei){
-    const slot={date:ei.date, from:toMins(ei.start), to:toMins(EQUIL_ON_FIM), equil:true, startLabel:ei.start};
-    out.push({...slot, eq:b.equipment});
-    out.push({...slot, eq:ei.col});
+    const inicio=toMins(ei.start);
+    const marca={equil:true, equilFrom:`${fmtBR(ei.date)} às ${ei.start}`};
+
+    // ÄKTA: véspera a partir do horário escolhido + madrugada até a corrida
+    const aktaFirst=bookingFirstDate(b);
+    out.push({...marca, eq:b.equipment, date:ei.date, from:inicio, to:toMins(EQUIL_ON_FIM), runDate:aktaFirst});
+    if(ms>0) out.push({...marca, eq:b.equipment, date:aktaFirst, from:0, to:ms, runDate:aktaFirst});
+
+    // Coluna: mesma lógica, mas com o horário de início dela
+    const colFirst=(b.colPeriod==='multidias'&&b.colDateStart)?b.colDateStart:b.date;
+    const colStart=(col&&col!=='_cromatografia')
+      ? slotRange(getEffectivePeriod(b.period,b.colPeriod),b.startTime,b.endTime)[0]
+      : ms;
+    out.push({...marca, eq:ei.col, date:ei.date, from:inicio, to:toMins(EQUIL_ON_FIM), runDate:colFirst});
+    if(colStart>0) out.push({...marca, eq:ei.col, date:colFirst, from:0, to:colStart, runDate:colFirst});
   }
   return out;
+}
+
+// Fim do bloco contínuo (véspera + madrugada + corrida), para exibição
+function equilSpan(b){
+  const ei=equilInfoFor(b);
+  if(!ei) return null;
+  const first=bookingFirstDate(b);
+  const fim=(b.period==='multidias'&&b.dateEnd)?b.dateEnd:first;
+  const [,me]=slotRange(b.period,b.startTime,b.endTime);
+  const hFim=`${pad(Math.floor(me/60))}:${pad(me%60)}`;
+  return {
+    inicioData:ei.date, inicioHora:ei.start,
+    fimData:fim, fimHora:hFim,
+    texto:`${fmtBR(ei.date)} ${ei.start} → ${fmtBR(fim)} ${hFim}`
+  };
 }
 
 // candidate = objeto de reserva (mesmo formato do Firestore); excId = id a ignorar
@@ -1669,9 +1702,9 @@ function checkConflict(candidate, excId){
         if(m.eq!==o.eq || m.date!==o.date) continue;
         if(m.to>o.from && o.to>m.from){
           if(o.equil)
-            return `${eqName(m.eq)} está em equilibração overnight de ${esc(b.user)} em ${fmtBR(m.date)}, a partir das ${o.startLabel}.`;
+            return `${eqName(m.eq)} está em equilibração overnight de ${esc(b.user)} — ocupado sem interrupção desde ${o.equilFrom} até a corrida de ${fmtBR(o.runDate)}.`;
           if(m.equil)
-            return `Não dá para equilibrar overnight em ${fmtBR(m.date)}: ${eqName(m.eq)} já está reservado por ${esc(b.user)} nesse fim de dia.`;
+            return `Não dá para equilibrar overnight: ${eqName(m.eq)} já está reservado por ${esc(b.user)} em ${fmtBR(m.date)}, dentro da janela de equilibração.`;
           const quando=(m.from===0&&m.to>=1439)?'neste dia':'neste horário';
           return `${eqName(m.eq)} já está reservado em ${fmtBR(m.date)} ${quando} por ${esc(b.user)}.`;
         }
@@ -1954,9 +1987,11 @@ function renderReservas(){
   list.innerHTML=bks.map(b=>{
     const e=eqById(b.equipment);
     const cat=e?e.cat:'outro';
-    const colInfo=b.comboColumn?(b.comboColumn==='_cromatografia'?'<span class="badge badge-other" style="font-size:10px">Só cromatografia</span>':`<span class="badge badge-col" style="font-size:10px">+ ${eqName(b.comboColumn)}${equilInfoFor(b)?' 🌙 equil. '+fmtBR(equilInfoFor(b).date):''}  </span>`):'';
+    const colInfo=b.comboColumn?(b.comboColumn==='_cromatografia'?'<span class="badge badge-other" style="font-size:10px">Só cromatografia</span>':`<span class="badge badge-col" style="font-size:10px">+ ${eqName(b.comboColumn)}${equilInfoFor(b)?' 🌙 equil. ON':''}  </span>`):'';
     let time;
-    if(isSharedEq(b.equipment)){
+    const span=equilSpan(b);
+    if(span) time=`🌙 ${span.texto}`;
+    else if(isSharedEq(b.equipment)){
       const ini=(b.shakerStartDate&&b.shakerStartDate!==b.date?fmtBR(b.shakerStartDate)+' ':'')+(b.startTime||'');
       const fim=(b.shakerEndDate?fmtBR(b.shakerEndDate)+' ':'')+(b.shakerEndTime||'');
       time=fim?`${ini} → ${fim}`:(ini||pl[b.period]||b.period);
@@ -2210,10 +2245,11 @@ function openDayPopup(ds){
       const cat=e?e.cat:'outro';
       const ei=equilInfoFor(b);
       const isEquilDay=ei&&ei.date===ds&&ds!==b.date;
-      const time=isEquilDay?`${ei.start}–${EQUIL_ON_FIM}`
+      const spanD=isEquilDay?equilSpan(b):null;
+      const time=spanD?spanD.texto
                 :b.period==='custom'?`${b.startTime}–${b.endTime}`:pl[b.period]||b.period;
       return `<div class="day-bk-item" onclick="closeDayPopup();openEdit('${b.id}')">
-        ${isEquilDay?`<div style="font-size:11px;color:var(--blue-dark);margin-bottom:4px">🌙 Equilibração overnight — corrida em ${fmtBR(b.date)}</div>`:''}
+        ${isEquilDay?`<div style="font-size:11px;color:var(--blue-dark);margin-bottom:4px">🌙 Equilibração overnight — mesma reserva, segue direto até a corrida de ${fmtBR(b.date)}</div>`:''}
         <div class="day-bk-top">
           ${b.bookingType==='manutencao'?'<span class="badge badge-manut">🔧 Manutenção</span>':''}
           <span class="badge ${eqBadge(cat)||'badge-other'}">${eqName(b.equipment)}</span>
