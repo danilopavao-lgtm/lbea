@@ -610,6 +610,16 @@ select option{background:var(--bg2);color:var(--text)}
           </div>
         </div>
       </div>
+      <!-- SHAKER: horário de início da expressão -->
+      <div id="shaker-time-section" style="display:none">
+        <div class="field">
+          <label>Início da expressão (data e hora)</label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="date" id="bk-shaker-start-date" style="flex:1;min-width:130px" oninput="calcExpDuration()">
+            <input type="time" id="bk-shaker-start-time" value="09:00" style="width:110px" oninput="calcExpDuration()">
+          </div>
+        </div>
+      </div>
       <div id="multiday-dates" style="display:none">
         <div class="field">
           <label>Período (de / até)</label>
@@ -638,6 +648,14 @@ select option{background:var(--bg2);color:var(--text)}
             </select>
           </div>
           <div id="col-period-section" style="display:none;margin-top:10px">
+            <!-- Equilibração overnight -->
+            <label class="overnight-toggle" style="margin-bottom:10px">
+              <input type="checkbox" id="bk-equil-on" onchange="toggleEquilON(this)">
+              Equilibrar coluna overnight (noite anterior)
+            </label>
+            <div id="equil-on-info" style="display:none;background:var(--blue-light);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:12px;color:var(--blue-dark);line-height:1.5">
+              🌙 A coluna ficará reservada também na noite anterior para equilibração. Isso aparecerá no calendário como reserva do dia anterior.
+            </div>
             <div class="field">
               <label>Período da coluna</label>
               <div class="period-grid" id="col-period-grid">
@@ -840,6 +858,7 @@ const eqName = id => { const e=eqById(id); return e?e.name:id; };
 const eqBadge = cat => cat==='akta'?'badge-akta':cat==='coluna'?'badge-col':cat==='outro'&&'badge-other';
 const evClass = cat => cat==='akta'?'ev-akta':cat==='coluna'?'ev-col':'ev-other';
 
+const SHAKER_MAX_L = 8; // capacidade total do shaker, em litros
 const PERIOD_LABELS = {manha:'Manhã (8h–12h)',tarde:'Tarde (13h–17h)',noite:'Noite (17h–22h)',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário específico'};
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DAYS_SHORT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
@@ -864,17 +883,40 @@ let colCounters = {}; // {colId: {uses, limit, lastReset, lastResetBy}}
 // ═══════════════════════════════════════════════════
 // FIRESTORE HELPERS
 // ═══════════════════════════════════════════════════
+// Quantos dias de histórico o app mantém carregado em memória.
+// Reservas mais antigas continuam no Firestore e são buscadas sob demanda
+// (filtro "Passadas" e exportação CSV).
+const HISTORY_DAYS = 120;
+function historyCutoff(){
+  const d=new Date(); d.setDate(d.getDate()-HISTORY_DAYS);
+  return fmtDate(d);
+}
+
+// Cache do histórico completo (carregado só quando alguém pede)
+let fullHistory=null, fullHistoryLoading=false;
+async function ensureFullHistory(){
+  if(fullHistory) return fullHistory;
+  const snap=await db.collection('bookings').orderBy('date','desc').get();
+  fullHistory=snap.docs.map(d=>({id:d.id,...d.data()}));
+  return fullHistory;
+}
+// Junta histórico + reservas ao vivo, sem duplicar (ao vivo ganha)
+function mergedBookings(){
+  if(!fullHistory) return bookings;
+  const map=new Map(fullHistory.map(b=>[b.id,b]));
+  bookings.forEach(b=>map.set(b.id,b));
+  return [...map.values()];
+}
+
 async function loadUsers(){
   const snap = await db.collection('users').orderBy('name').get();
   users = snap.docs.map(d=>({id:d.id,...d.data()}));
 }
-async function loadBookings(){
-  const snap = await db.collection('bookings').orderBy('date','desc').get();
-  bookings = snap.docs.map(d=>({id:d.id,...d.data()}));
-}
 async function listenBookings(){
-  db.collection('bookings').onSnapshot(snap=>{
+  // Só escuta a janela recente: corta leituras (e custo) conforme a base cresce
+  db.collection('bookings').where('date','>=',historyCutoff()).onSnapshot(snap=>{
     bookings = snap.docs.map(d=>({id:d.id,...d.data()}));
+    fullHistory=null; // invalida o cache de histórico
     renderCalendar();
     if(document.getElementById('panel-reservas').classList.contains('active'))renderReservas();
     if(document.getElementById('panel-equipamentos').classList.contains('active'))renderEquipamentos();
@@ -907,7 +949,6 @@ window.onload = async function(){
 
     db = firebase.firestore();
     auth = firebase.auth();
-    await db.collection('users').limit(1).get();
     // Listen for auth state changes — this drives the whole app
     auth.onAuthStateChanged(async (user)=>{
       hide('loading-screen');
@@ -939,8 +980,14 @@ async function loadOrCreateProfile(user){
   if(snap.exists){
     const data = snap.data();
     if(ADMIN_EMAILS.includes(user.email) && !data.isAdmin){
-      await ref.update({isAdmin: true});
-      data.isAdmin = true;
+      // As regras bloqueiam autopromocao. Se falhar, vira admin pelo Console
+      // do Firebase — mas o login nao pode travar por causa disso.
+      try{
+        await ref.update({isAdmin: true});
+        data.isAdmin = true;
+      }catch(err){
+        console.warn('Autopromocao bloqueada pelas regras do Firestore:', err.code||err);
+      }
     }
     currentUser = {id:user.uid, ...data};
     // Existing user — go straight to app
@@ -956,7 +1003,7 @@ async function loadOrCreateProfile(user){
     window._pendingProfile = {
       uid: user.uid,
       email: user.email,
-      isAdmin: users.length===0 || ADMIN_EMAILS.includes(user.email),
+      isAdmin: false, // regras do Firestore rejeitam perfil criado como admin — promova pela aba Admin
       authProvider: user.providerData[0]?.providerId||'google.com',
     };
     return true; // true = name picker shown
@@ -1149,7 +1196,8 @@ function bksForDate(ds){
 }
 
 function renderCalendar(){
-  const monthBks=bookings.filter(b=>b.date&&b.date.startsWith(`${calYear}-${String(calMonth+1).padStart(2,'0')}`));
+  const monthPrefix=`${calYear}-${String(calMonth+1).padStart(2,'0')}`;
+  const monthBks=bookings.filter(b=>b.date&&b.date.startsWith(monthPrefix));
   document.getElementById('cal-title').textContent=`${MONTHS[calMonth]} ${calYear}`;
   const countEl=document.getElementById('cal-bk-count');
   if(countEl) countEl.textContent=monthBks.length?`${monthBks.length} reserva${monthBks.length!==1?'s':''}`:''
@@ -1185,9 +1233,9 @@ function calCell(dt,dim,today){
     const eqShort=eqName(b.equipment).replace('ÄKTA ','').replace('Superdex ','Sdx ').replace('Superose ','Srose ').replace('Shaker ','').replace('Termociclador ','TC ').replace('PEAQ-ITC','ITC');
     const label=b.comboColumn&&b.comboColumn!=='_cromatografia'?eqShort+'+':eqShort;
     const evCls=b.bookingType==='manutencao'?'ev-manut':evClass(cat);
-    const userShort=b.user.split(' ')[0];
-    const evLabel=b.bookingType==='manutencao'?('🔧 '+userShort):(userShort+': '+label);
-    const tooltip=b.user+' — '+eqName(b.equipment)+(b.protein?' ('+b.protein+')':'');
+    const userShort=esc((b.user||'').split(' ')[0]);
+    const evLabel=b.bookingType==='manutencao'?('🔧 '+userShort):(userShort+': '+esc(label));
+    const tooltip=esc(b.user+' — '+eqName(b.equipment)+(b.protein?' ('+b.protein+')':''));
     chips+=`<div class="ev ${evCls}" title="${tooltip}">${evLabel}</div>`;
   });
   if(bks.length>2) chips+=`<div class="ev-more">+${bks.length-2}</div>`;
@@ -1224,6 +1272,14 @@ function openNew(date){
   if(document.getElementById('exp-duration-label')) document.getElementById('exp-duration-label').textContent='';
   document.getElementById('overnight-fields').style.display='none';
   document.getElementById('shaker-section').style.display='none';
+  const equilCb=document.getElementById('bk-equil-on');
+  if(equilCb){ equilCb.checked=false; }
+  const equilInfo=document.getElementById('equil-on-info');
+  if(equilInfo){ equilInfo.style.display='none'; }
+  if(document.getElementById('bk-shaker-start-date')) document.getElementById('bk-shaker-start-date').value='';
+  if(document.getElementById('bk-shaker-start-time')) document.getElementById('bk-shaker-start-time').value='09:00';
+  const pg=document.getElementById('period-grid'); if(pg) pg.style.display='flex';
+  const sts=document.getElementById('shaker-time-section'); if(sts) sts.style.display='none';
   const d=date||fmtDate(new Date());
   document.getElementById('bk-date').value=d;
   document.getElementById('bk-date-display').value=fmtBR(d);
@@ -1246,8 +1302,9 @@ function openNew(date){
 function openEdit(id){
   const b=bookings.find(x=>x.id===id);
   if(!b)return;
-  // Only owner or admin can edit
-  if(b.user!==currentUser.name && !currentUser.isAdmin){
+  // Only owner or admin can edit — usa UID (nome pode mudar); cai no nome so em reservas antigas
+  const isOwner = b.userId ? b.userId===currentUser.id : b.user===currentUser.name;
+  if(!isOwner && !currentUser.isAdmin){
     alert('Só o dono da reserva ou um admin pode editá-la.');
     return;
   }
@@ -1274,7 +1331,7 @@ function openEdit(id){
     document.getElementById('bk-date-end').value=b.dateEnd||b.date;
   }
   populateEqSelect(b.equipment, b.comboColumn, b.colPeriod);
-  populateUserSelect(b.user);
+  populateUserSelect(b.userId||b.user);
   document.getElementById('bk-notes').value=b.notes||'';
   document.getElementById('bk-user2').value=b.user2||'';
   document.getElementById('bk-inst').value=b.institution||'';
@@ -1286,6 +1343,10 @@ function openEdit(id){
   document.getElementById('bk-tempchange').value=b.shakerTempChange||'22:00';
   if(document.getElementById('bk-endtime')) document.getElementById('bk-endtime').value=b.shakerEndTime||'09:00';
   if(document.getElementById('bk-enddate')) document.getElementById('bk-enddate').value=b.shakerEndDate||'';
+  if(document.getElementById('bk-shaker-start-date')) document.getElementById('bk-shaker-start-date').value=b.shakerStartDate||b.date||'';
+  if(document.getElementById('bk-shaker-start-time')) document.getElementById('bk-shaker-start-time').value=b.startTime||'09:00';
+  const equilCb=document.getElementById('bk-equil-on');
+  if(equilCb){ equilCb.checked=!!b.equilON; toggleEquilON(equilCb); }
   calcExpDuration();
   const isON=!!b.shakerOvernight;
   document.getElementById('bk-overnight').checked=isON;
@@ -1319,14 +1380,19 @@ function populateEqSelect(sel, preCol, preColPeriod){
   onEqChange(preCol, preColPeriod);
 }
 
+// sel aceita UID (preferido) ou nome (reservas antigas)
 function populateUserSelect(sel){
-  const selUser=sel||currentUser.name;
+  const match=users.find(u=>u.id===sel||u.name===sel);
+  const selId=match?match.id:currentUser.id;
   const s=document.getElementById('bk-user');
-  s.innerHTML=users.map(u=>`<option value="${u.name}"${u.name===selUser?' selected':''}>${u.name}${u.isExternal?' (ext)':''}</option>`).join('');
+  s.innerHTML=users.map(u=>`<option value="${esc(u.id)}"${u.id===selId?' selected':''}>${esc(u.name)}${u.isExternal?' (ext)':''}</option>`).join('');
+  // Se o proprio perfil ainda nao chegou pelo listener, garante a opcao
+  if(!users.some(u=>u.id===currentUser.id))
+    s.innerHTML=`<option value="${esc(currentUser.id)}" selected>${esc(currentUser.name)}</option>`+s.innerHTML;
   // Non-admins can only book for themselves
   const note=document.getElementById('bk-user-lock-note');
   if(!currentUser.isAdmin){
-    s.value=currentUser.name;
+    s.value=currentUser.id;
     s.disabled=true;
     if(note) note.style.display='block';
   } else {
@@ -1340,6 +1406,10 @@ function syncUserSelects(){
     const cur=document.getElementById('bk-user').value;
     populateUserSelect(cur);
   }
+}
+
+function toggleEquilON(cb){
+  document.getElementById('equil-on-info').style.display=cb.checked?'block':'none';
 }
 
 function toggleOvernight(cb){
@@ -1376,15 +1446,15 @@ function checkShakerCapacity(){
   const existing=bookings.filter(b=>b.id!==editingId&&b.equipment===eq&&b.date===date);
   const usedVol=existing.reduce((sum,b)=>sum+(parseFloat(b.shakerVolume)||0),0);
   const total=usedVol+vol;
-  const pct=Math.min(100,(total/8)*100);
+  const pct=Math.min(100,(total/SHAKER_MAX_L)*100);
   bar.style.display='block';
-  document.getElementById('shaker-cap-text').textContent=`${total.toFixed(1)} / 8L`;
+  document.getElementById('shaker-cap-text').textContent=`${total.toFixed(1)} / ${SHAKER_MAX_L}L`;
   const fill=document.getElementById('shaker-cap-fill');
   fill.style.width=pct+'%';
-  fill.style.background=total>8?'var(--red)':total>6?'var(--amber)':'var(--blue)';
+  fill.style.background=total>SHAKER_MAX_L?'var(--red)':total>SHAKER_MAX_L*0.75?'var(--amber)':'var(--blue)';
   const usersEl=document.getElementById('shaker-cap-users');
   if(existing.length){
-    usersEl.textContent='Já reservado: '+existing.map(b=>`${b.user} (${b.shakerVolume||'?'}L)`).join(', ');
+    usersEl.textContent='Já reservado: '+existing.map(b=>`${b.user} (${b.shakerVolume||'?'}L)`).join(', '); // textContent = seguro
   } else {
     usersEl.textContent='Nenhuma outra reserva neste período';
   }
@@ -1397,7 +1467,19 @@ function onEqChange(preCol, preColPeriod){
   const isShaker=e&&e.cat==='outro'&&(e.id==='shaker-1'||e.id==='shaker-2');
   document.getElementById('combo-section').style.display=(isAkta&&bookingType!=='manutencao')?'block':'none';
   document.getElementById('shaker-section').style.display=isShaker?'block':'none';
-  if(isShaker) setTimeout(checkShakerCapacity, 50);
+  // For shakers: hide period pills, show dedicated time picker
+  const pg=document.getElementById('period-grid');
+  const sts=document.getElementById('shaker-time-section');
+  if(pg) pg.style.display=isShaker?'none':'flex';
+  if(sts) sts.style.display=isShaker?'block':'none';
+  if(isShaker){
+    // Pre-fill shaker start date from booking date
+    const d=document.getElementById('bk-date')?.value;
+    const ssd=document.getElementById('bk-shaker-start-date');
+    if(d&&ssd&&!ssd.value) ssd.value=d;
+    selectedPeriod='custom'; // treat shaker as custom period
+    setTimeout(checkShakerCapacity, 50);
+  }
   if(isAkta){
     const cs=document.getElementById('bk-col');
     const cols=EQ.filter(x=>x.cat==='coluna');
@@ -1437,89 +1519,84 @@ function selColPeriod(el){
   document.getElementById('conflict-alert').style.display='none';
 }
 
-function periodsOverlap(p1,s1,e1,p2,s2,e2){
-  if(p1==='diatodo'||p2==='diatodo')return true;
-  // multidias means the booking spans multiple days — on shared dates, treat as diatodo
-  if(p1==='multidias'||p2==='multidias')return true;
-  const range={manha:['08:00','12:00'],tarde:['13:00','17:00'],noite:['17:00','22:00']};
-  const toMins=t=>{ const[h,m]=t.split(':').map(Number);return h*60+m; };
-  const r1=p1==='custom'?[s1,e1]:range[p1];
-  const r2=p2==='custom'?[s2,e2]:range[p2];
-  if(!r1||!r2)return p1===p2;
-  return toMins(r1[1])>toMins(r2[0]) && toMins(r2[1])>toMins(r1[0]);
+// ═══════════════════════════════════════════════════
+// CONFLITOS — modelo de "ocupações"
+// Cada reserva vira uma lista de {eq, date, from, to} em minutos.
+// Conflito = mesmo equipamento + mesma data + intervalos que se cruzam.
+// ═══════════════════════════════════════════════════
+const PERIOD_RANGES={
+  manha:['08:00','12:00'], tarde:['13:00','17:00'], noite:['17:00','22:00'],
+  diatodo:['00:00','23:59'], multidias:['00:00','23:59']
+};
+// Equipamentos compartilhados: várias pessoas usam ao mesmo tempo.
+// O limite deles é volume (barra de 8 L), não exclusividade de horário.
+const SHARED_EQ=new Set(['shaker-1','shaker-2']);
+const isSharedEq=id=>SHARED_EQ.has(id);
+
+function toMins(t){ const[h,m]=String(t||'00:00').split(':').map(Number); return (h||0)*60+(m||0); }
+
+function slotRange(period,startTime,endTime){
+  if(period==='custom') return [toMins(startTime||'00:00'), toMins(endTime||'23:59')];
+  const r=PERIOD_RANGES[period]||['00:00','23:59'];
+  return [toMins(r[0]), toMins(r[1])];
 }
 
 function dateRange(start,end){
   const dates=[];
+  if(!start||!end) return dates;
   let cur=new Date(start+'T12:00:00');
   const last=new Date(end+'T12:00:00');
-  while(cur<=last){ dates.push(fmtDate(cur)); cur.setDate(cur.getDate()+1); }
+  let guard=0;
+  while(cur<=last && guard++<400){ dates.push(fmtDate(cur)); cur.setDate(cur.getDate()+1); }
   return dates;
 }
 
 function getEffectiveDates(period, mainDate, dateStart, dateEnd){
-  return period==='multidias' ? dateRange(dateStart,dateEnd) : [mainDate];
+  if(period==='multidias'){
+    const r=dateRange(dateStart,dateEnd);
+    return r.length?r:[mainDate];
+  }
+  return [mainDate];
 }
 function getEffectivePeriod(period, colPeriod){
-  // 'mesmo' means use the AKTA's period
+  // 'mesmo' (ou vazio) = usa o período da ÄKTA
   return (colPeriod&&colPeriod!=='mesmo') ? colPeriod : period;
 }
 
-function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,colDateStart,colDateEnd){
-  const aktaDates = getEffectiveDates(period,date,dateStart,dateEnd);
-  // Effective column period
-  const effColPeriod = col ? getEffectivePeriod(period,colPeriod) : null;
-  const colDates = col ? getEffectiveDates(
-    effColPeriod, date,
-    (colPeriod==='multidias')?colDateStart:dateStart,
-    (colPeriod==='multidias')?colDateEnd:dateEnd
-  ) : [];
+// Expande uma reserva (salva ou candidata) nas faixas que ela realmente ocupa
+function occupancies(b){
+  const out=[];
+  if(!b||!b.equipment) return out;
+  if(isSharedEq(b.equipment)) return out; // shaker não bloqueia shaker
+  const [ms,me]=slotRange(b.period,b.startTime,b.endTime);
+  getEffectiveDates(b.period,b.date,b.dateStart,b.dateEnd)
+    .forEach(d=>{ if(d) out.push({eq:b.equipment,date:d,from:ms,to:me}); });
 
+  const col=b.comboColumn;
+  if(col && col!=='_cromatografia'){
+    const cp=getEffectivePeriod(b.period,b.colPeriod);
+    const cStart=(b.colPeriod==='multidias')?b.colDateStart:b.dateStart;
+    const cEnd  =(b.colPeriod==='multidias')?b.colDateEnd  :b.dateEnd;
+    const [cs,ce]=slotRange(cp,b.startTime,b.endTime);
+    getEffectiveDates(cp,b.date,cStart,cEnd)
+      .forEach(d=>{ if(d) out.push({eq:col,date:d,from:cs,to:ce}); });
+  }
+  return out;
+}
+
+// candidate = objeto de reserva (mesmo formato do Firestore); excId = id a ignorar
+function checkConflict(candidate, excId){
+  const mine=occupancies(candidate);
+  if(!mine.length) return null;
   for(const b of bookings){
-    if(b.id===excId)continue;
-    const bAktaDates = getEffectiveDates(b.period,b.date,b.dateStart,b.dateEnd);
-    const bEffColPeriod = b.comboColumn ? getEffectivePeriod(b.period,b.colPeriod) : null;
-    const bColDates = b.comboColumn ? getEffectiveDates(
-      bEffColPeriod||b.period, b.date,
-      (b.colPeriod==='multidias')?b.colDateStart:b.dateStart,
-      (b.colPeriod==='multidias')?b.colDateEnd:b.dateEnd
-    ) : [];
-
-    // Check AKTA vs AKTA conflict
-    const aktaDateOverlap = aktaDates.some(d=>bAktaDates.includes(d));
-    if(aktaDateOverlap && periodsOverlap(period,s,e,b.period,b.startTime,b.endTime)){
-      if(b.equipment===eq) return `${eqName(eq)} já reservado neste período por ${b.user}.`;
-    }
-
-    // Check column conflicts (use column's own period/dates)
-    if(col){
-      // New col vs existing AKTA's col
-      if(b.comboColumn===col){
-        const bcp=bEffColPeriod||b.period;
-        const colDateOvlp=colDates.some(d=>bColDates.includes(d));
-        if(colDateOvlp&&periodsOverlap(effColPeriod,s,e,bcp,b.startTime,b.endTime))
-          return `${eqName(col)} já está reservada neste período por ${b.user}.`;
-      }
-      // New col vs existing standalone col booking
-      if(b.equipment===col){
-        const colDateOvlp=colDates.some(d=>bAktaDates.includes(d));
-        if(colDateOvlp&&periodsOverlap(effColPeriod,s,e,b.period,b.startTime,b.endTime))
-          return `${eqName(col)} já reservada neste período por ${b.user}.`;
-      }
-    }
-
-    // Check if new booking is a column and conflicts with existing
-    const eObj=eqById(eq);
-    if(eObj&&eObj.cat==='coluna'){
-      if(b.equipment===eq){
-        if(aktaDateOverlap&&periodsOverlap(period,s,e,b.period,b.startTime,b.endTime))
-          return `${eqName(eq)} já reservada neste período por ${b.user}.`;
-      }
-      if(b.comboColumn===eq){
-        const bcp=bEffColPeriod||b.period;
-        const aktaColDateOvlp=aktaDates.some(d=>bColDates.includes(d));
-        if(aktaColDateOvlp&&periodsOverlap(period,s,e,bcp,b.startTime,b.endTime))
-          return `${eqName(eq)} já está vinculada a ${eqName(b.equipment)} por ${b.user}.`;
+    if(b.id===excId) continue;
+    for(const o of occupancies(b)){
+      for(const m of mine){
+        if(m.eq!==o.eq || m.date!==o.date) continue;
+        if(m.to>o.from && o.to>m.from){
+          const quando=(m.from===0&&m.to>=1439)?'neste dia':'neste horário';
+          return `${eqName(m.eq)} já está reservado em ${fmtBR(m.date)} ${quando} por ${esc(b.user)}.`;
+        }
       }
     }
   }
@@ -1529,7 +1606,11 @@ function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,
 async function saveBooking(){
   const date=document.getElementById('bk-date').value;
   const eq=document.getElementById('bk-eq').value;
-  const user=document.getElementById('bk-user').value;
+  // Nao-admin so reserva para si, independente do que o select mostrar
+  let userId=currentUser.isAdmin?document.getElementById('bk-user').value:currentUser.id;
+  const userObj=users.find(u=>u.id===userId);
+  if(!userObj) userId=currentUser.id;
+  const user=(userObj?userObj.name:currentUser.name);
   const notes=document.getElementById('bk-notes').value.trim();
   const user2=document.getElementById('bk-user2').value.trim()||null;
   const institution=document.getElementById('bk-inst').value.trim()||null;
@@ -1546,8 +1627,14 @@ async function saveBooking(){
   const shakerTempChange=shakerOvernight?document.getElementById('bk-tempchange').value||null:null;
   const e=eqById(eq);
   const col=(e&&e.cat==='akta')?document.getElementById('bk-col').value||null:null;
-  const st=document.getElementById('bk-start').value;
-  const en=document.getElementById('bk-end').value;
+  let st=document.getElementById('bk-start').value;
+  let en=document.getElementById('bk-end').value;
+  if(isShaker){
+    // O campo de início do shaker não estava sendo salvo — openEdit já esperava
+    // encontrá-lo em startTime, então é aqui que ele entra.
+    st=document.getElementById('bk-shaker-start-time')?.value||st;
+    if(shakerEndTime) en=shakerEndTime;
+  }
   const dateStart=document.getElementById('bk-date-start').value;
   const dateEnd=document.getElementById('bk-date-end').value;
   const colDateStart=document.getElementById('bk-col-date-start').value;
@@ -1557,20 +1644,30 @@ async function saveBooking(){
   const mainDate = selectedPeriod==='multidias' ? dateStart : date;
 
   if(!selectedPeriod){ showConflict('⚠️ Selecione o período da reserva antes de salvar.'); return; }
-  if(selectedPeriod==='custom'&&st>=en){ showConflict('⚠️ O horário de início deve ser anterior ao horário de fim.'); return; }
+  // No shaker o fim pode ser no dia seguinte (overnight), então st>=en é legítimo
+  if(selectedPeriod==='custom'&&!isShaker&&st>=en){ showConflict('⚠️ O horário de início deve ser anterior ao horário de fim.'); return; }
   if(selectedPeriod==='multidias'&&(!dateStart||!dateEnd)){ showConflict('⚠️ Informe a data de início e a data de fim para reservas de múltiplos dias.'); return; }
   if(selectedPeriod==='multidias'&&dateEnd<dateStart){ showConflict('⚠️ A data de fim deve ser posterior à data de início.'); return; }
   if(col&&col!=='_cromatografia'&&!selectedColPeriod){ showConflict('⚠️ Você selecionou uma coluna — escolha também o período de uso dela.'); return; }
   // Shaker capacity warning
   if(isShaker&&shakerVolume){
     const existingVol=bookings.filter(b=>b.id!==editingId&&b.equipment===eqObj?.id&&b.date===mainDate).reduce((s,b)=>s+(parseFloat(b.shakerVolume)||0),0);
-    if(existingVol+parseFloat(shakerVolume)>8){
-      if(!confirm(`⚠️ Volume total (${(existingVol+parseFloat(shakerVolume)).toFixed(1)}L) excede a capacidade de 8L do shaker. Deseja salvar mesmo assim?`))return;
+    if(existingVol+parseFloat(shakerVolume)>SHAKER_MAX_L){
+      if(!confirm(`⚠️ Volume total (${(existingVol+parseFloat(shakerVolume)).toFixed(1)}L) excede a capacidade de ${SHAKER_MAX_L}L do shaker. Deseja salvar mesmo assim?`))return;
     }
   }
   if(col&&selectedColPeriod==='multidias'&&(!colDateStart||!colDateEnd)){ showConflict('⚠️ Informe as datas de uso da coluna.'); return; }
 
-  const conflict=checkConflict(date,selectedPeriod,st,en,eq,col,editingId,dateStart,dateEnd,selectedColPeriod,colDateStart,colDateEnd);
+  const candidate={
+    date:mainDate, period:selectedPeriod,
+    dateStart:selectedPeriod==='multidias'?dateStart:null,
+    dateEnd:selectedPeriod==='multidias'?dateEnd:null,
+    startTime:st, endTime:en, equipment:eq, comboColumn:col,
+    colPeriod:col?selectedColPeriod:null,
+    colDateStart:(col&&selectedColPeriod==='multidias')?colDateStart:null,
+    colDateEnd:(col&&selectedColPeriod==='multidias')?colDateEnd:null
+  };
+  const conflict=checkConflict(candidate, editingId);
   if(conflict){ showConflict(conflict); return; }
 
   // Warn if column near/at usage limit
@@ -1599,10 +1696,12 @@ Deseja continuar?`))return;
     startTime:st,endTime:en,
     equipment:eq,
     comboColumn:col||null,
+    equilON:document.getElementById('bk-equil-on')?.checked||false,
+    shakerStartDate:isShaker?document.getElementById('bk-shaker-start-date')?.value||null:null,
     colPeriod:col?selectedColPeriod:null,
     colDateStart:col&&selectedColPeriod==='multidias'?colDateStart:null,
     colDateEnd:col&&selectedColPeriod==='multidias'?colDateEnd:null,
-    user,user2:user2||null,institution:institution||null,protein:protein||null,shakerErlens,shakerVolume,shakerTemp1,shakerOvernight:shakerOvernight||false,shakerTemp2,shakerTempChange,shakerEndTime:shakerEndTime||null,shakerEndDate:shakerEndDate||null,notes,
+    user,userId,user2:user2||null,institution:institution||null,protein:protein||null,shakerErlens,shakerVolume,shakerTemp1,shakerOvernight:shakerOvernight||false,shakerTemp2,shakerTempChange,shakerEndTime:shakerEndTime||null,shakerEndDate:shakerEndDate||null,notes,
     updatedAt:new Date().toISOString()
   };
   const saveBtn=document.getElementById('save-btn');
@@ -1613,6 +1712,7 @@ Deseja continuar?`))return;
       await db.collection('bookings').doc(editingId).update(data);
     } else {
       data.createdAt=new Date().toISOString();
+      data.createdBy=currentUser.id;
       await db.collection('bookings').add(data);
       // Increment column use counter for new bookings only
       const colsUsed=[];
@@ -1638,40 +1738,43 @@ async function deleteBooking(){
   const btn=document.getElementById('del-btn');
   btn.textContent='Excluindo...';
   btn.disabled=true;
+  // Timeout de 10s para nunca ficar travado
+  const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Tempo esgotado. Verifique sua conexão e tente novamente.')),10000));
   try{
-    // Find the booking before deleting
     const b=bookings.find(x=>x.id===editingId);
-    await db.collection('bookings').doc(editingId).delete();
-
-    // Decrement column counter only if booking date is today or future
-    // (past bookings already happened — counter stays)
+    await Promise.race([db.collection('bookings').doc(editingId).delete(), timeout]);
+    // Decrement column counter only for future bookings
     if(b){
       const today=fmtDate(new Date());
-      const bookingDate=b.date||b.startDate||'';
+      const bookingDate=b.date||b.dateStart||'';
       if(bookingDate>=today){
         const colsToDecrement=[];
         const eqObj=eqById(b.equipment);
         if(eqObj&&eqObj.cat==='coluna') colsToDecrement.push(b.equipment);
         if(b.comboColumn&&b.comboColumn!=='_cromatografia') colsToDecrement.push(b.comboColumn);
         for(const cid of colsToDecrement){
-          await decrementColUse(cid);
+          try{ await decrementColUse(cid); }catch(e){ console.warn('decrementColUse:',e); }
         }
       }
     }
     closeModal();
   }catch(err){
     alert('Erro ao excluir: '+err.message);
+  }finally{
     btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg> Excluir';
     btn.disabled=false;
   }
 }
 
+// Transação — evita o contador ficar negativo ou perder decrementos simultâneos
 async function decrementColUse(colId){
   const ref=db.collection('colCounters').doc(colId);
-  const snap=await ref.get();
-  if(!snap.exists)return;
-  const cur=snap.data().uses||0;
-  if(cur>0) await ref.update({uses:cur-1});
+  await db.runTransaction(async t=>{
+    const snap=await t.get(ref);
+    if(!snap.exists) return;
+    const cur=snap.data().uses||0;
+    if(cur>0) t.update(ref,{uses:cur-1});
+  });
 }
 
 function showConflict(msg){
@@ -1702,21 +1805,49 @@ function populateFilters(){
   EQ.forEach(e=>{const o=document.createElement('option');o.value=e.id;o.textContent=e.name;fe.appendChild(o);});
 }
 
+// Só os campos que fazem sentido buscar (antes era JSON.stringify do documento inteiro)
+function searchableText(b){
+  return [
+    b.user, b.user2, b.notes, b.protein, b.institution,
+    eqName(b.equipment), b.comboColumn&&b.comboColumn!=='_cromatografia'?eqName(b.comboColumn):'',
+    b.date, b.date?fmtBR(b.date):''
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
 function renderReservas(){
   // Sync user filter options with current users list
   const fu=document.getElementById('f-user');
   const curFu=fu.value;
-  fu.innerHTML='<option value="">Todos os usuários</option>'+users.map(u=>`<option value="${u.name}"${u.name===curFu?' selected':''}>${u.name}</option>`).join('');
+  fu.innerHTML='<option value="">Todos os usuários</option>'+users.map(u=>`<option value="${esc(u.name)}"${u.name===curFu?' selected':''}>${esc(u.name)}</option>`).join('');
   const eqF=document.getElementById('f-eq').value;
   const uF=fu.value;
-  const sF=document.getElementById('f-search').value.toLowerCase();
+  const sF=document.getElementById('f-search').value.toLowerCase().trim();
   const today=fmtDate(new Date());
   const weekEnd=fmtDate(new Date(Date.now()+7*864e5));
   const monthEnd=fmtDate(new Date(new Date().getFullYear(),new Date().getMonth()+1,0));
-  let bks=[...bookings].sort((a,b)=>b.date.localeCompare(a.date));
+  const list0=document.getElementById('reservas-list');
+
+  // "Passadas" pode precisar de reservas fora da janela em memória
+  let source=bookings;
+  if(activePeriodFilter==='past'){
+    if(fullHistory) source=mergedBookings();
+    else{
+      if(!fullHistoryLoading){
+        fullHistoryLoading=true;
+        ensureFullHistory()
+          .then(()=>{ fullHistoryLoading=false; renderReservas(); })
+          .catch(err=>{ fullHistoryLoading=false; console.error('histórico:',err);
+            list0.innerHTML='<div class="empty"><p>Não foi possível carregar o histórico completo.</p></div>'; });
+      }
+      list0.innerHTML='<div class="empty"><p>Carregando histórico completo…</p></div>';
+      return;
+    }
+  }
+
+  let bks=[...source].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   if(eqF) bks=bks.filter(b=>b.equipment===eqF||b.comboColumn===eqF);
   if(uF) bks=bks.filter(b=>b.user===uF);
-  if(sF) bks=bks.filter(b=>JSON.stringify(b).toLowerCase().includes(sF));
+  if(sF) bks=bks.filter(b=>searchableText(b).includes(sF));
   if(activePeriodFilter==='past') bks=bks.filter(b=>b.date<today);
   else if(activePeriodFilter==='today') bks=bks.filter(b=>b.date===today);
   else if(activePeriodFilter==='week') bks=bks.filter(b=>b.date>=today&&b.date<=weekEnd);
@@ -1736,9 +1867,14 @@ function renderReservas(){
   list.innerHTML=bks.map(b=>{
     const e=eqById(b.equipment);
     const cat=e?e.cat:'outro';
-    const colInfo=b.comboColumn?(b.comboColumn==='_cromatografia'?'<span class="badge badge-other" style="font-size:10px">Só cromatografia</span>':`<span class="badge badge-col" style="font-size:10px">+ ${eqName(b.comboColumn)}</span>`):'';
+    const colInfo=b.comboColumn?(b.comboColumn==='_cromatografia'?'<span class="badge badge-other" style="font-size:10px">Só cromatografia</span>':`<span class="badge badge-col" style="font-size:10px">+ ${eqName(b.comboColumn)}${b.equilON?' 🌙ON':''}  </span>`):'';
     let time;
-    if(b.period==='custom') time=`${b.startTime}–${b.endTime}`;
+    if(isSharedEq(b.equipment)){
+      const ini=(b.shakerStartDate&&b.shakerStartDate!==b.date?fmtBR(b.shakerStartDate)+' ':'')+(b.startTime||'');
+      const fim=(b.shakerEndDate?fmtBR(b.shakerEndDate)+' ':'')+(b.shakerEndTime||'');
+      time=fim?`${ini} → ${fim}`:(ini||pl[b.period]||b.period);
+    }
+    else if(b.period==='custom') time=`${b.startTime}–${b.endTime}`;
     else if(b.period==='multidias'&&b.dateStart&&b.dateEnd) time=`${fmtBR(b.dateStart)} até ${fmtBR(b.dateEnd)}`;
     else time=pl[b.period]||b.period;
     let colTime='';
@@ -1755,9 +1891,9 @@ function renderReservas(){
         ${colInfo}
         <span class="ri-date">${fmtBR(b.date)}</span>
       </div>
-      ${b.protein?`<div style="margin-bottom:3px"><span class="protocol-badge">🧪 ${b.protein}</span></div>`:''}
-      ${b.shakerErlens||b.shakerTemp1?`<div style="margin-bottom:3px">${b.shakerErlens?`<span class="badge-shaker">🧫 ${b.shakerErlens} erlens</span> `:''}${b.shakerVolume?`<span class="badge-shaker">${b.shakerVolume}L</span> `:''}${b.shakerTemp1?`<span class="badge-shaker">${b.shakerTemp1}°C</span> `:''}${b.shakerOvernight&&b.shakerTemp2?`<span class="badge-shaker">→ ${b.shakerTemp2}°C ON</span>`:''}${b.shakerEndTime?`<span class="badge-shaker">até ${b.shakerEndDate?fmtBR(b.shakerEndDate)+' ':''} ${b.shakerEndTime}</span>`:''}</div>`:''}
-      <div class="ri-info">${svgUser()} ${b.user}${b.user2?` + ${b.user2}`:''}${b.institution?` <span class="badge-ext">${b.institution}</span>`:''} · ${time}${colTime}${b.notes?` · <em>${b.notes}</em>`:''}</div>
+      ${b.protein?`<div style="margin-bottom:3px"><span class="protocol-badge">🧪 ${esc(b.protein)}</span></div>`:''}
+      ${b.shakerErlens||b.shakerTemp1?`<div style="margin-bottom:3px">${b.shakerErlens?`<span class="badge-shaker">🧫 ${esc(b.shakerErlens)} erlens</span> `:''}${b.shakerVolume?`<span class="badge-shaker">${esc(b.shakerVolume)}L</span> `:''}${b.shakerTemp1?`<span class="badge-shaker">${esc(b.shakerTemp1)}°C</span> `:''}${b.shakerOvernight&&b.shakerTemp2?`<span class="badge-shaker">→ ${esc(b.shakerTemp2)}°C ON</span>`:''}${b.shakerEndTime?`<span class="badge-shaker">até ${b.shakerEndDate?fmtBR(b.shakerEndDate)+' ':''} ${esc(b.shakerEndTime)}</span>`:''}</div>`:''}
+      <div class="ri-info">${svgUser()} ${esc(b.user)}${b.user2?` + ${esc(b.user2)}`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${time}${colTime}${b.notes?` · <em>${esc(b.notes)}</em>`:''}</div>
     </div>`;
   }).join('');
 }
@@ -1768,12 +1904,15 @@ function renderReservas(){
 function renderEquipamentos(){
   const today=fmtDate(new Date());
   const grid=document.getElementById('eq-grid');
+  // Calcula uma vez só (antes era recalculado dentro do filtro, para cada equipamento)
+  const todayAll=bksForDate(today);
+  const future=bookings.filter(b=>(b.date||'')>=today).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   grid.innerHTML=EQ.map(e=>{
-    const todayBks=bookings.filter(b=>bksForDate(today).includes(b)&&(b.equipment===e.id||b.comboColumn===e.id));
+    const todayBks=todayAll.filter(b=>b.equipment===e.id||b.comboColumn===e.id);
     const busy=todayBks.length>0;
     const isManut=busy&&todayBks.some(b=>b.bookingType==='manutencao');
     const cat=e.cat;
-    const nextBk=bookings.filter(b=>b.date>=today&&(b.equipment===e.id||b.comboColumn===e.id)).sort((a,b)=>a.date.localeCompare(b.date))[0];
+    const nextBk=future.find(b=>b.equipment===e.id||b.comboColumn===e.id);
     const strip=cat==='akta'?'strip-akta':cat==='coluna'?'strip-col':'strip-other';
     const badgeCls=cat==='akta'?'badge-akta':cat==='coluna'?'badge-col':'badge-other';
     const catLabel=cat==='akta'?'ÄKTA':cat==='coluna'?'Coluna':'Outro';
@@ -1844,17 +1983,17 @@ function renderAdminUsers(){
   list.innerHTML=sorted.map(u=>`
     <div class="user-row">
       <div class="avatar${u.isAdmin?' admin':''}">${initials(u.name)}</div>
-      <span class="uname">${u.name}${u.email?` <span style="font-size:11px;color:var(--text3)">${u.email}</span>`:''}${u.isExternal?` <span class="user-ext-tag">Ext${u.institution?' · '+u.institution:''}</span>`:''}</span>
+      <span class="uname">${esc(u.name)}${u.email?` <span style="font-size:11px;color:var(--text3)">${esc(u.email)}</span>`:''}${u.isExternal?` <span class="user-ext-tag">Ext${u.institution?' · '+esc(u.institution):''}</span>`:''}</span>
       ${u.isAdmin?'<span class="admin-tag">Admin</span>':''}
       <button class="btn btn-sm" onclick="editUserInstitution('${u.id}')">Editar</button>
       <button class="btn btn-sm" onclick="toggleAdmin('${u.id}',${!u.isAdmin})">${u.isAdmin?'Remover admin':'Tornar admin'}</button>
-      ${u.id!==currentUser.id?`<button class="btn btn-sm btn-danger" onclick="revokeAccess('${u.id}','${u.name}')">Revogar acesso</button>`:'<span style="width:60px"></span>'}
+      ${u.id!==currentUser.id?`<button class="btn btn-sm btn-danger" onclick="revokeAccess('${escJs(u.id)}')">Revogar acesso</button>`:'<span style="width:60px"></span>'}
     </div>`).join('');
 }
 
 function renderAdminBookings(){
   const list=document.getElementById('admin-reservas-list');
-  const bks=[...bookings].sort((a,b)=>b.date.localeCompare(a.date));
+  const bks=[...bookings].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const pl={manha:'Manhã',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário esp.'};
   if(!bks.length){list.innerHTML='<p style="font-size:13px;color:var(--text2)">Nenhuma reserva.</p>';return;}
   list.innerHTML=bks.map(b=>{
@@ -1866,7 +2005,7 @@ function renderAdminBookings(){
         ${b.comboColumn?`<span class="badge badge-col" style="font-size:10px">+ ${eqName(b.comboColumn)}</span>`:''}
         <span class="ri-date">${fmtBR(b.date)}</span>
       </div>
-      <div class="ri-info">${svgUser()} ${b.user} · ${pl[b.period]||b.period}</div>
+      <div class="ri-info">${svgUser()} ${esc(b.user)} · ${pl[b.period]||b.period}</div>
     </div>`;
   }).join('');
 }
@@ -1901,7 +2040,8 @@ async function toggleAdmin(uid, val){
   if(uid===currentUser.id){ currentUser.isAdmin=val; updateTopbar(); if(!val)document.getElementById('admin-tab').style.display='none'; }
 }
 
-async function revokeAccess(uid, name){
+async function revokeAccess(uid){
+  const name=(users.find(u=>u.id===uid)||{}).name||'este usuário';
   if(!confirm(`Revogar acesso de ${name}? O perfil será removido, mas as reservas feitas por essa pessoa serão mantidas. A pessoa ainda poderá criar uma nova conta se tiver o link.`))return;
   await db.collection('users').doc(uid).delete();
 }
@@ -1909,10 +2049,13 @@ async function revokeAccess(uid, name){
 // ═══════════════════════════════════════════════════
 // CSV EXPORT
 // ═══════════════════════════════════════════════════
-function exportCSV(){
+async function exportCSV(){
   const pl={manha:'Manha',tarde:'Tarde',noite:'Noite',custom:'Horario especifico'};
   const rows=[['Data','Tipo','Equipamento','Coluna vinculada','Usuario principal','Segundo usuario','Instituicao','Proteina/Amostra','Erlens','Volume(L)','Temp.inicial(C)','Overnight','Temp.overnight(C)','Troca de temp','Data fim expressao','Hora fim expressao','Periodo','Hora inicio','Hora fim','Observacoes']];
-  const bks=[...bookings].sort((a,b)=>a.date.localeCompare(b.date));
+  let source=bookings;
+  try{ source=await ensureFullHistory(); }
+  catch(err){ console.warn('CSV: usando só a janela em memória —',err); }
+  const bks=[...source].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   bks.forEach(b=>{
     rows.push([
       fmtBR(b.date),
@@ -1985,9 +2128,9 @@ function openDayPopup(ds){
           <span class="badge ${eqBadge(cat)||'badge-other'}">${eqName(b.equipment)}</span>
           ${b.comboColumn?`<span class="badge badge-col" style="font-size:10px">+ ${eqName(b.comboColumn)}</span>`:''}
         </div>
-        ${b.protein?`<div style="margin-bottom:4px"><span class="protocol-badge">🧪 ${b.protein}</span></div>`:''}
-        ${b.shakerErlens||b.shakerTemp1?`<div style="margin-bottom:4px">${b.shakerErlens?`<span class="badge-shaker">🧫 ${b.shakerErlens} erlens</span> `:''}${b.shakerVolume?`<span class="badge-shaker">${b.shakerVolume}L</span> `:''}${b.shakerTemp1?`<span class="badge-shaker">${b.shakerTemp1}°C${b.shakerOvernight&&b.shakerTemp2?' → '+b.shakerTemp2+'°C ON':''}</span>`:''}${b.shakerTempChange?` <span style="font-size:11px;color:var(--text2)">troca às ${b.shakerTempChange}</span>`:''}</div>`:''}
-        <div class="day-bk-info">${svgUser()} <strong>${b.user}</strong>${b.user2?` + <strong>${b.user2}</strong>`:''}${b.institution?` <span class="badge-ext">${b.institution}</span>`:''} · ${time}${b.notes?` · <em>${b.notes}</em>`:''}</div>
+        ${b.protein?`<div style="margin-bottom:4px"><span class="protocol-badge">🧪 ${esc(b.protein)}</span></div>`:''}
+        ${b.shakerErlens||b.shakerTemp1?`<div style="margin-bottom:4px">${b.shakerErlens?`<span class="badge-shaker">🧫 ${esc(b.shakerErlens)} erlens</span> `:''}${b.shakerVolume?`<span class="badge-shaker">${esc(b.shakerVolume)}L</span> `:''}${b.shakerTemp1?`<span class="badge-shaker">${esc(b.shakerTemp1)}°C${b.shakerOvernight&&b.shakerTemp2?' → '+esc(b.shakerTemp2)+'°C ON':''}</span>`:''}${b.shakerTempChange?` <span style="font-size:11px;color:var(--text2)">troca às ${esc(b.shakerTempChange)}</span>`:''}</div>`:''}
+        <div class="day-bk-info">${svgUser()} <strong>${esc(b.user)}</strong>${b.user2?` + <strong>${esc(b.user2)}</strong>`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${time}${b.notes?` · <em>${esc(b.notes)}</em>`:''}</div>
       </div>`;
     }).join('');
   }
@@ -2017,7 +2160,7 @@ function openEqDetail(eqId){
   const today = fmtDate(new Date());
   const todayBks = bksForDate(today).filter(b=>b.equipment===eqId||b.comboColumn===eqId);
   const busy = todayBks.length>0;
-  const allBks = bookings.filter(b=>b.equipment===eqId||b.comboColumn===eqId).sort((a,b)=>b.date.localeCompare(a.date));
+  const allBks = bookings.filter(b=>b.equipment===eqId||b.comboColumn===eqId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const futureBks = allBks.filter(b=>b.date>=today);
   const pastBks = allBks.filter(b=>b.date<today).slice(0,5);
   const pl={manha:'Manhã',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário esp.'};
@@ -2058,7 +2201,7 @@ function openEqDetail(eqId){
             ${cs.status==='danger'?`<div class="col-counter-danger">⚠ Limpeza recomendada!</div>`:''}
             ${cs.status==='warn'?`<div class="col-counter-warn">⚠ Próximo do limite</div>`:''}
             ${cs.uses===0?'<div style="font-size:11px;color:var(--text3)">Nenhum uso registrado</div>':''}
-            ${colCounters[e.id]?.lastReset?`<div style="font-size:10px;color:var(--text3);margin-top:4px">Última limpeza: ${fmtBR(colCounters[e.id].lastReset.split('T')[0])} por ${colCounters[e.id].lastResetBy||'—'}</div>`:''}
+            ${colCounters[e.id]?.lastReset?`<div style="font-size:10px;color:var(--text3);margin-top:4px">Última limpeza: ${fmtBR(colCounters[e.id].lastReset.split('T')[0])} por ${esc(colCounters[e.id].lastResetBy||'—')}</div>`:''}
           </div>
         </div>
         ${currentUser.isAdmin?`<div style="display:flex;gap:6px;margin-top:8px">
@@ -2072,8 +2215,8 @@ function openEqDetail(eqId){
     html += `<div style="margin-top:4px"><div class="eq-hist-title">Próximas reservas</div>`;
     html += futureBks.slice(0,5).map(b=>`
       <div class="day-bk-item" onclick="closeEqDetail();openEdit('${b.id}')">
-        <div class="day-bk-top"><span style="font-size:12px;font-weight:600">${fmtBR(b.date)}</span>${b.protein?`<span class="protocol-badge" style="margin-left:6px">🧪 ${b.protein}</span>`:''}</div>
-        <div class="day-bk-info">${svgUser()} <strong>${b.user}</strong>${b.user2?` + ${b.user2}`:''}${b.institution?` <span class="badge-ext">${b.institution}</span>`:''} · ${pl[b.period]||b.period}${b.notes?` · <em>${b.notes}</em>`:''}</div>
+        <div class="day-bk-top"><span style="font-size:12px;font-weight:600">${fmtBR(b.date)}</span>${b.protein?`<span class="protocol-badge" style="margin-left:6px">🧪 ${esc(b.protein)}</span>`:''}</div>
+        <div class="day-bk-info">${svgUser()} <strong>${esc(b.user)}</strong>${b.user2?` + ${esc(b.user2)}`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${pl[b.period]||b.period}${b.notes?` · <em>${esc(b.notes)}</em>`:''}</div>
       </div>`).join('');
     html += '</div>';
   } else {
@@ -2084,8 +2227,8 @@ function openEqDetail(eqId){
     html += `<div style="margin-top:4px"><div class="eq-hist-title">Últimas reservas</div>`;
     html += pastBks.map(b=>`
       <div class="day-bk-item" style="opacity:.7" onclick="closeEqDetail();openEdit('${b.id}')">
-        <div class="day-bk-top"><span style="font-size:12px;font-weight:600">${fmtBR(b.date)}</span>${b.protein?`<span class="protocol-badge" style="margin-left:6px">🧪 ${b.protein}</span>`:''}</div>
-        <div class="day-bk-info">${svgUser()} <strong>${b.user}</strong>${b.user2?` + ${b.user2}`:''}${b.institution?` <span class="badge-ext">${b.institution}</span>`:''} · ${pl[b.period]||b.period}</div>
+        <div class="day-bk-top"><span style="font-size:12px;font-weight:600">${fmtBR(b.date)}</span>${b.protein?`<span class="protocol-badge" style="margin-left:6px">🧪 ${esc(b.protein)}</span>`:''}</div>
+        <div class="day-bk-info">${svgUser()} <strong>${esc(b.user)}</strong>${b.user2?` + ${esc(b.user2)}`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${pl[b.period]||b.period}</div>
       </div>`).join('');
     html += '</div>';
   }
@@ -2152,16 +2295,19 @@ function debounceSearch(){ clearTimeout(_searchTimer); _searchTimer=setTimeout(r
 // ═══════════════════════════════════════════════════
 // COLUMN USAGE COUNTER
 // ═══════════════════════════════════════════════════
+// Incremento atômico — duas pessoas salvando ao mesmo tempo não perdem contagem
 async function incrementColUse(colId){
   const ref=db.collection('colCounters').doc(colId);
-  const snap=await ref.get();
-  if(snap.exists){
-    await ref.update({uses: (snap.data().uses||0)+1, lastUsed: new Date().toISOString()});
-  } else {
-    // First use — create with default limit
-    const defaultLimit=colId.includes('1030')||colId.includes('increase')?20:10;
-    await ref.set({uses:1, limit:defaultLimit, lastReset:null, lastResetBy:null, lastUsed:new Date().toISOString()});
+  const payload={
+    uses: firebase.firestore.FieldValue.increment(1),
+    lastUsed: new Date().toISOString()
+  };
+  // Só define o limite se a coluna ainda não tiver um
+  const known=colCounters[colId];
+  if(!known || known.limit==null){
+    payload.limit = (colId.includes('1030')||colId.includes('increase')) ? 20 : 10;
   }
+  await ref.set(payload,{merge:true});
 }
 
 async function resetColCounter(colId){
@@ -2209,10 +2355,15 @@ document.addEventListener('keydown',e=>{
 // ═══════════════════════════════════════════════════
 // UTILS
 // ═══════════════════════════════════════════════════
+// Escapa texto vindo do usuario antes de injetar em innerHTML/atributos
+const _ESC_MAP={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+function esc(v){ return String(v==null?'':v).replace(/[&<>"']/g, c=>_ESC_MAP[c]); }
+// Escapa texto que vai dentro de uma string JS em onclick="...('...')"
+function escJs(v){ return String(v==null?'':v).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'\\u003c'); }
 function fmtDate(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
 function fmtBR(s){ if(!s)return''; const[y,m,d]=s.split('-'); return `${d}/${m}/${y}`; }
 function pad(n){ return String(n).padStart(2,'0'); }
-function initials(n){ return (n||'?').split(' ').map(x=>x[0]).join('').toUpperCase().slice(0,2); }
+function initials(n){ return esc((n||'?').split(' ').map(x=>x[0]).join('').toUpperCase().slice(0,2)); }
 function v(id){ return document.getElementById(id).value.trim(); }
 function show(id){ document.getElementById(id).style.display='block'; }
 function hide(id){ document.getElementById(id).style.display='none'; }
