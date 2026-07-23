@@ -349,6 +349,17 @@ select option{background:var(--bg2);color:var(--text)}
 </head>
 <body>
 
+<!-- Avisos de conexão / permissão — sem isto, uma falha do Firestore
+     deixa a tela vazia sem explicar nada para quem está usando -->
+<div id="app-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:300;
+     padding:10px 16px;font-size:13px;line-height:1.45;text-align:center;
+     background:var(--red-light);color:var(--red);border-bottom:1px solid var(--red);
+     font-family:var(--font)">
+  <span id="app-banner-text"></span>
+  <button onclick="hideBanner()" style="margin-left:10px;background:none;border:0;cursor:pointer;
+          color:inherit;font-weight:700;font-size:15px;line-height:1;padding:0 4px">×</button>
+</div>
+
 <!-- ═══════════════════════════════════════ LOGIN SCREEN -->
 <div id="loading-screen" style="display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:16px;font-family:system-ui;background:#f7f7f5">
   <div style="display:flex;align-items:center;gap:10px">
@@ -864,6 +875,8 @@ const eqBadge = cat => cat==='akta'?'badge-akta':cat==='coluna'?'badge-col':cat=
 const evClass = cat => cat==='akta'?'ev-akta':cat==='coluna'?'ev-col':'ev-other';
 
 const SHAKER_MAX_L = 8; // capacidade total do shaker, em litros
+// Rótulos curtos, usados em listas e no calendário (antes copiados em 4 lugares)
+const PERIOD_SHORT = {manha:'Manhã',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário esp.'};
 const PERIOD_LABELS = {manha:'Manhã (8h–12h)',tarde:'Tarde (13h–17h)',noite:'Noite (17h–22h)',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário específico'};
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DAYS_SHORT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
@@ -884,6 +897,30 @@ let selectedColPeriod = null;
 let bookingType = 'experimento';
 let auth = null;
 let colCounters = {}; // {colId: {uses, limit, lastReset, lastResetBy}}
+
+// ═══════════════════════════════════════════════════
+// AVISOS NA TELA
+// ═══════════════════════════════════════════════════
+function showBanner(msg){
+  const el=document.getElementById('app-banner');
+  const tx=document.getElementById('app-banner-text');
+  if(!el||!tx) return;
+  tx.textContent=msg;
+  el.style.display='block';
+}
+function hideBanner(){
+  const el=document.getElementById('app-banner');
+  if(el) el.style.display='none';
+}
+// Traduz o erro do Firestore para algo acionável
+function firestoreErro(err, contexto){
+  const code=err&&err.code||'';
+  if(code==='permission-denied')
+    return `Sem permissão para acessar ${contexto}. Se as regras do Firestore acabaram de mudar, recarregue a página; se persistir, avise um admin.`;
+  if(code==='unavailable'||code==='failed-precondition')
+    return `Sem conexão com o servidor. Os dados podem estar desatualizados — verifique sua internet.`;
+  return `Erro ao carregar ${contexto}: ${code||(err&&err.message)||'desconhecido'}.`;
+}
 
 // ═══════════════════════════════════════════════════
 // FIRESTORE HELPERS
@@ -922,18 +959,47 @@ async function listenBookings(){
   db.collection('bookings').where('date','>=',historyCutoff()).onSnapshot(snap=>{
     bookings = snap.docs.map(d=>({id:d.id,...d.data()}));
     fullHistory=null; // invalida o cache de histórico
+    invalidarIndices();
+    hideBanner();
     renderCalendar();
     if(document.getElementById('panel-reservas').classList.contains('active'))renderReservas();
     if(document.getElementById('panel-equipamentos').classList.contains('active'))renderEquipamentos();
     if(document.getElementById('panel-admin').classList.contains('active'))renderAdminBookings();
-  }, err=>console.error('Bookings listener error:',err));
+  }, err=>{
+    console.error('Bookings listener error:',err);
+    showBanner(firestoreErro(err,'as reservas'));
+  });
 }
 async function listenUsers(){
   db.collection('users').onSnapshot(snap=>{
     users = snap.docs.map(d=>({id:d.id,...d.data()}));
+
+    if(currentUser){
+      const eu=users.find(u=>u.id===currentUser.id);
+      if(!eu){
+        // Perfil removido enquanto a sessão estava aberta: "Revogar acesso"
+        // não tinha efeito nenhum em quem já estava logado.
+        alert('Seu acesso ao LBEA Reservas foi removido por um administrador.');
+        logoutSilencioso();
+        return;
+      }
+      // Promoção/rebaixamento passa a valer na hora, sem precisar relogar
+      if(eu.isAdmin!==currentUser.isAdmin || eu.name!==currentUser.name){
+        currentUser={...currentUser, ...eu};
+        updateTopbar();
+        const at=document.getElementById('admin-tab');
+        if(at) at.style.display=currentUser.isAdmin?'flex':'none';
+        if(!currentUser.isAdmin && document.getElementById('panel-admin').classList.contains('active'))
+          switchTabById('calendar');
+      }
+    }
+
     if(document.getElementById('panel-admin').classList.contains('active'))renderAdmin();
     syncUserSelects();
-  }, err=>console.error('Users listener error:',err));
+  }, err=>{
+    console.error('Users listener error:',err);
+    showBanner(firestoreErro(err,'a lista de usuários'));
+  });
 }
 
 // ═══════════════════════════════════════════════════
@@ -1139,13 +1205,20 @@ async function listenColCounters(){
     snap.docs.forEach(d=>{ colCounters[d.id]={...d.data()}; });
     // Refresh equipment tab if open
     if(document.getElementById('panel-equipamentos').classList.contains('active')) renderEquipamentos();
-  }, err=>console.error('colCounters error:',err));
+  }, err=>{
+    console.error('colCounters error:',err);
+    showBanner(firestoreErro(err,'os contadores de coluna'));
+  });
 }
 
 function logout(){
   if(!confirm(`Sair da conta de ${currentUser?.name||'usuário'}?`))return;
+  logoutSilencioso();
+}
+function logoutSilencioso(){
   window._pendingProfile=null;
   hide('name-picker-screen');
+  hideBanner();
   auth.signOut();
 }
 
@@ -1188,20 +1261,32 @@ function goToday(){
   renderCalendar();
 }
 
-function bksForDate(ds){
-  return bookings.filter(b=>{
-    // AKTA date range
-    if(b.period==='multidias'&&b.dateStart&&b.dateEnd) return ds>=b.dateStart&&ds<=b.dateEnd;
-    if(b.date===ds) return true;
-    // Also show on column's own dates if different from AKTA
-    if(b.comboColumn&&b.colPeriod==='multidias'&&b.colDateStart&&b.colDateEnd)
-      return ds>=b.colDateStart&&ds<=b.colDateEnd;
-    // Equilibração overnight ocupa o dia anterior
-    const ei=equilInfoFor(b);
-    if(ei&&ei.date===ds) return true;
-    return false;
-  });
+// Todos os dias em que a reserva deve APARECER no calendário
+function bookingDates(b){
+  const dias=new Set();
+  if(b.period==='multidias'&&b.dateStart&&b.dateEnd) dateRange(b.dateStart,b.dateEnd).forEach(d=>dias.add(d));
+  if(b.date) dias.add(b.date);
+  if(b.comboColumn&&b.colPeriod==='multidias'&&b.colDateStart&&b.colDateEnd)
+    dateRange(b.colDateStart,b.colDateEnd).forEach(d=>dias.add(d));
+  const ei=equilInfoFor(b);
+  if(ei) dias.add(ei.date);
+  return dias;
 }
+
+// Índice data -> reservas, construído uma vez por atualização em vez de
+// uma varredura completa por célula do calendário
+let _idxDatas=null;
+function invalidarIndices(){ _idxDatas=null; _occCache=null; }
+function idxDatas(){
+  if(_idxDatas) return _idxDatas;
+  _idxDatas=new Map();
+  bookings.forEach(b=>bookingDates(b).forEach(d=>{
+    if(!_idxDatas.has(d)) _idxDatas.set(d,[]);
+    _idxDatas.get(d).push(b);
+  }));
+  return _idxDatas;
+}
+function bksForDate(ds){ return idxDatas().get(ds)||[]; }
 
 function renderCalendar(){
   const monthPrefix=`${calYear}-${String(calMonth+1).padStart(2,'0')}`;
@@ -1692,12 +1777,19 @@ function equilSpan(b){
 }
 
 // candidate = objeto de reserva (mesmo formato do Firestore); excId = id a ignorar
+let _occCache=null;
+function ocupacoesSalvas(){
+  if(_occCache) return _occCache;
+  _occCache=bookings.map(b=>({b, occ:occupancies(b)}));
+  return _occCache;
+}
+
 function checkConflict(candidate, excId){
   const mine=occupancies(candidate);
   if(!mine.length) return null;
-  for(const b of bookings){
+  for(const {b, occ} of ocupacoesSalvas()){
     if(b.id===excId) continue;
-    for(const o of occupancies(b)){
+    for(const o of occ){
       for(const m of mine){
         if(m.eq!==o.eq || m.date!==o.date) continue;
         if(m.to>o.from && o.to>m.from){
@@ -1787,6 +1879,11 @@ async function saveBooking(){
   };
   const conflict=checkConflict(candidate, editingId);
   if(conflict){ showConflict(conflict); return; }
+
+  // Reserva retroativa costuma ser erro de digitação na data
+  if(!editingId && mainDate < fmtDate(new Date())){
+    if(!confirm(`A data escolhida (${fmtBR(mainDate)}) já passou. Registrar assim mesmo?`)) return;
+  }
 
   // Warn if column near/at usage limit
   const colsToCheck=[];
@@ -1983,7 +2080,7 @@ function renderReservas(){
     list.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:36px;height:36px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;opacity:.4"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><p>Nenhuma reserva encontrada${filterDesc}</p><p style="font-size:12px;margin-top:4px">Tente mudar os filtros ou <a href="#" onclick="event.preventDefault();switchTabById('calendar')">veja o calendário</a></p></div>`;
     return;
   }
-  const pl={manha:'Manhã',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário esp.'};
+  const pl=PERIOD_SHORT;
   list.innerHTML=bks.map(b=>{
     const e=eqById(b.equipment);
     const cat=e?e.cat:'outro';
@@ -2116,7 +2213,7 @@ function renderAdminUsers(){
 function renderAdminBookings(){
   const list=document.getElementById('admin-reservas-list');
   const bks=[...bookings].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const pl={manha:'Manhã',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário esp.'};
+  const pl=PERIOD_SHORT;
   if(!bks.length){list.innerHTML='<p style="font-size:13px;color:var(--text2)">Nenhuma reserva.</p>';return;}
   list.innerHTML=bks.map(b=>{
     const e=eqById(b.equipment);
@@ -2172,8 +2269,8 @@ async function revokeAccess(uid){
 // CSV EXPORT
 // ═══════════════════════════════════════════════════
 async function exportCSV(){
-  const pl={manha:'Manha',tarde:'Tarde',noite:'Noite',custom:'Horario especifico'};
-  const rows=[['Data','Tipo','Equipamento','Coluna vinculada','Usuario principal','Segundo usuario','Instituicao','Proteina/Amostra','Erlens','Volume(L)','Temp.inicial(C)','Overnight','Temp.overnight(C)','Troca de temp','Data fim expressao','Hora fim expressao','Periodo','Hora inicio','Hora fim','Observacoes']];
+  const pl={manha:'Manha',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horario especifico'};
+  const rows=[['Data','Tipo','Equipamento','Coluna vinculada','Usuario principal','Segundo usuario','Instituicao','Proteina/Amostra','Erlens','Volume(L)','Temp.inicial(C)','Overnight','Temp.overnight(C)','Troca de temp','Data fim expressao','Hora fim expressao','Periodo','Hora inicio','Hora fim','Equilibracao overnight','Inicio da equilibracao','Observacoes']];
   let source=bookings;
   try{ source=await ensureFullHistory(); }
   catch(err){ console.warn('CSV: usando só a janela em memória —',err); }
@@ -2199,6 +2296,8 @@ async function exportCSV(){
       pl[b.period]||b.period,
       b.period==='custom'?b.startTime:'',
       b.period==='custom'?b.endTime:'',
+      equilInfoFor(b)?'Sim':'Nao',
+      equilInfoFor(b)?`${fmtBR(equilInfoFor(b).date)} ${equilInfoFor(b).start}`:'',
       b.notes||''
     ]);
   });
@@ -2235,7 +2334,7 @@ function openDayPopup(ds){
   dayPopupDate = ds;
   const bks = bksForDate(ds);
   document.getElementById('day-popup-title').textContent = `${fmtBR(ds)} — ${bks.length} reserva${bks.length!==1?'s':''}`;
-  const pl={manha:'Manhã',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário esp.'};
+  const pl=PERIOD_SHORT;
   const body = document.getElementById('day-popup-body');
   if(!bks.length){
     body.innerHTML='<div class="day-popup-empty">Nenhuma reserva neste dia.</div>';
@@ -2290,7 +2389,7 @@ function openEqDetail(eqId){
   const allBks = bookings.filter(b=>b.equipment===eqId||b.comboColumn===eqId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const futureBks = allBks.filter(b=>b.date>=today);
   const pastBks = allBks.filter(b=>b.date<today).slice(0,5);
-  const pl={manha:'Manhã',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário esp.'};
+  const pl=PERIOD_SHORT;
   const cat=e.cat;
 
   document.getElementById('eq-detail-name').textContent = e.name;
