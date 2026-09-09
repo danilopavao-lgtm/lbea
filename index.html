@@ -32,21 +32,34 @@
   --border2: rgba(0,0,0,0.18);
   --text: #1a1a18;
   --text2: #5a5a56;
-  --text3: #9a9a94;
+  --text3: #6f6e69;
   --radius: 12px;
-  --radius-sm: 7px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
   --shadow-sm: 0 1px 2px rgba(0,0,0,.04);
   --shadow-md: 0 4px 16px rgba(0,0,0,.08);
-  --shadow-lg: 0 12px 40px rgba(0,0,0,.14);
-  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --shadow-lg: 0 -4px 40px rgba(0,0,0,.16);
+  /* Fonte do sistema: SF Pro em Apple, Segoe/Roboto nos demais */
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* Escala de espaçamento em múltiplos de 4 */
+  --sp1:4px; --sp2:8px; --sp3:12px; --sp4:16px; --sp5:20px; --sp6:24px; --sp8:32px;
+  /* Escala tipográfica (referência iOS) */
+  --fs-caption:12px; --fs-footnote:13px; --fs-subhead:14px; --fs-body:15px;
+  --fs-headline:16px; --fs-title:20px;
+  /* Movimento: curva de folha do iOS */
+  --ease: cubic-bezier(.32,.72,0,1);
+  --dur: .34s;
+  --dur-fast: .18s;
+  --tap: 44px; /* alvo mínimo de toque */
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #232320; --bg2: #2d2d2a; --bg3: #181816;
     --border: rgba(255,255,255,0.12); --border2: rgba(255,255,255,0.22);
-    --text: #f0efe9; --text2: #c0bfb8; --text3: #787870;
+    --text: #f0efe9; --text2: #c0bfb8; --text3: #96958e;
     --blue-light: #0e3358; --green-light: #1c3a0c; --amber-light: #3a2406; --red-light: #3a0c0c;
     --blue-dark: #7ab8f5; --green-dark: #8ecc3e; --amber: #e09a30; --red: #f07070;
+    --gray: #b8b7b0; --gray-light: #37372f;
     --green: #8ecc3e;
   }
 }
@@ -69,21 +82,57 @@
 .eq-row.inactive .eq-row-name{color:var(--text3);text-decoration:line-through}
 .eq-row-actions{display:flex;gap:4px;flex:none}
 .eq-order-btn{width:26px;height:26px;padding:0;justify-content:center;border-radius:var(--radius-sm)}
-.empty-state{text-align:center;padding:28px 16px;color:var(--text2);font-size:13px}
-body{font-family:var(--font);font-size:14px;color:var(--text);background:var(--bg3);min-height:100vh;
-  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-0.005em}
+.empty-state{text-align:center;padding:var(--sp8) var(--sp4);color:var(--text2);font-size:var(--fs-footnote);line-height:1.5}
+
+/* Cabeçalho de seção do formulário — agrupa campos relacionados */
+.form-section{font-size:var(--fs-caption);font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--text3);padding-top:var(--sp2);margin-bottom:-6px;display:flex;align-items:center;gap:var(--sp2)}
+.form-section::after{content:'';flex:1;height:0.5px;background:var(--border)}
+.modal-body>.form-section:first-child{padding-top:0}
+
+/* Lista agrupada: separadores finos dentro de um bloco arredondado */
+/* Confirmação breve das ações */
+.toast-wrap{position:fixed;left:0;right:0;bottom:max(var(--sp5),env(safe-area-inset-bottom));display:flex;justify-content:center;
+  z-index:400;pointer-events:none;padding:0 var(--sp4)}
+.toast{display:flex;align-items:center;gap:var(--sp2);background:var(--text);color:var(--bg);padding:11px 16px;border-radius:22px;
+  font-size:var(--fs-footnote);font-weight:500;box-shadow:var(--shadow-md);animation:toastIn var(--dur) var(--ease);max-width:min(92vw,420px)}
+.toast.out{animation:toastOut var(--dur-fast) ease-in forwards}
+.toast .ico{stroke-width:2.4}
+@keyframes toastIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateY(8px)}}
+
+.list-group{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.list-group>*+*{border-top:0.5px solid var(--border)}
+
+/* Cabeçalho de card mais discreto — conteúdo em primeiro plano */
+.section-head h3{font-size:var(--fs-headline);font-weight:600;letter-spacing:-.01em}
+body{font-family:var(--font);font-size:var(--fs-subhead);color:var(--text);background:var(--bg3);min-height:100vh;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-0.01em;
+  -webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+button,.btn,.period-pill,.type-btn,.nav-tab,.cal-cell,.filter-period-btn,.eq-card,.user-btn{touch-action:manipulation}
+/* Respeita "Reduzir movimento" do sistema */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+/* Áreas seguras (entalhe e barra inferior do iPhone) */
+@supports(padding:max(0px)){
+  .topbar{padding-top:env(safe-area-inset-top)}
+  .modal-foot,.day-popup-foot,.eq-detail-foot{padding-bottom:max(var(--sp3),env(safe-area-inset-bottom))}
+}
 a{color:var(--blue);text-decoration:none}
 
 /* Layout */
 .app-shell{display:flex;flex-direction:column;min-height:100vh}
-.topbar{background:var(--bg);border-bottom:0.5px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
-.topbar-logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;letter-spacing:-0.5px}
+.topbar{background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:0.5px solid var(--border);padding:0 var(--sp5);min-height:52px;display:flex;align-items:center;gap:var(--sp3);position:sticky;top:0;z-index:50}
+@supports not (backdrop-filter:blur(1px)){ .topbar{background:var(--bg)} }
+.topbar-logo{display:flex;align-items:center;gap:var(--sp2);font-weight:600;font-size:var(--fs-headline);letter-spacing:-.02em}
 .topbar-logo svg{width:22px;height:22px}
 .topbar-spacer{flex:1}
 .topbar-user{display:flex;align-items:center;gap:8px;padding:5px 10px;border:0.5px solid var(--border2);border-radius:20px;cursor:pointer;font-size:13px;background:var(--bg2)}
 .avatar{width:24px;height:24px;border-radius:50%;background:var(--blue-light);color:var(--blue-dark);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.avatar.admin{background:#FAEEDA;color:#854F0B}
+.avatar.admin{background:var(--amber-light);color:var(--amber)}
 
 .nav-tabs{background:var(--bg);border-bottom:0.5px solid var(--border);display:flex;padding:0 20px;overflow-x:auto;scrollbar-width:none}
 .nav-tabs::-webkit-scrollbar{display:none}
@@ -105,7 +154,15 @@ a{color:var(--blue);text-decoration:none}
   font-size:13px;font-weight:500;cursor:pointer;border:0.5px solid var(--border2);background:var(--bg);color:var(--text);
   transition:background .12s,border-color .12s,opacity .12s;font-family:var(--font);line-height:1.2;white-space:nowrap}
 .btn:hover{background:var(--bg2);border-color:var(--border2)}
-.btn:active{transform:translateY(0.5px)}
+.btn:active{transform:scale(.97)}
+/* Em telas de toque, alvo mínimo de 44px (HIG) */
+@media (pointer: coarse){
+  .btn{min-height:var(--tap);padding-left:var(--sp4);padding-right:var(--sp4)}
+  .btn-sm{min-height:38px}
+  .btn-icon{width:var(--tap);height:var(--tap)}
+  .period-pill,.filter-period-btn{min-height:40px}
+  .nav-tab{min-height:var(--tap)}
+}
 .btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
 .btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
 .btn-primary{background:var(--blue);color:#fff;border-color:var(--blue-dark)}
@@ -117,9 +174,8 @@ a{color:var(--blue);text-decoration:none}
 .btn svg{width:14px;height:14px}
 
 /* Forms */
-.field{display:flex;flex-direction:column;gap:5px}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:2px}
 .field label{font-size:12px;font-weight:600;color:var(--text);letter-spacing:.1px}
-.field{margin-bottom:2px}
 input[type=text],input[type=password],input[type=time],input[type=date],select,textarea{
   width:100%;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);
   background:var(--bg2);color:var(--text);font-size:13px;font-family:var(--font);
@@ -140,17 +196,21 @@ select option{background:var(--bg2);color:var(--text)}
 
 /* Period selector */
 .period-grid{display:flex;flex-wrap:wrap;gap:6px}
-.period-pill{padding:5px 12px;border:0.5px solid var(--border2);border-radius:20px;cursor:pointer;font-size:12px;background:var(--bg2);color:var(--text);transition:all .15s}
+.period-pill{padding:7px 14px;border:0.5px solid var(--border2);border-radius:20px;cursor:pointer;font-size:var(--fs-footnote);
+  background:var(--bg2);color:var(--text);transition:background var(--dur-fast) ease,color var(--dur-fast) ease,border-color var(--dur-fast) ease;
+  display:inline-flex;align-items:center}
+.period-pill:active{transform:scale(.97)}
 .period-pill:hover{border-color:var(--blue);color:var(--blue)}
 .period-pill.sel{background:var(--blue);color:#fff;border-color:var(--blue-dark)}
 
 /* Calendar */
 .cal-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.cal-header h2{font-size:15px;font-weight:600;flex:1}
+.cal-header h2{font-size:var(--fs-title);font-weight:600;flex:1;letter-spacing:-.02em}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:0.5px solid var(--border);border-radius:var(--radius);overflow:hidden}
 .cal-head{background:var(--bg2);text-align:center;padding:7px 4px;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
 .cal-cell{background:var(--bg);height:80px;min-height:80px;max-height:80px;padding:5px 4px;cursor:pointer;position:relative;overflow:hidden;box-sizing:border-box}
 .cal-cell:hover{background:var(--bg2)}
+.cal-cell:active{background:var(--blue-light)}
 .cal-cell:hover .ev{opacity:.85}
 .cal-cell.dim{background:var(--bg3)}
 .cal-cell.dim .day-n{color:var(--text3)}
@@ -165,11 +225,18 @@ select option{background:var(--bg2);color:var(--text)}
 .ev-more{font-size:10px;color:var(--text3);white-space:nowrap}
 
 /* Modal */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
-.modal{background:var(--bg);border-radius:var(--radius);border:0.5px solid var(--border2);width:100%;max-width:480px;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;box-shadow:var(--shadow-lg)}
-.modal-head{padding:16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg)}
-.modal-head h3{color:var(--text)}
-.modal-head h3{flex:1;font-size:15px;font-weight:600}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.32);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;animation:fadeIn var(--dur-fast) ease-out}
+.modal{background:var(--bg);border-radius:var(--radius-lg);border:0.5px solid var(--border2);width:100%;max-width:480px;max-height:92vh;
+  overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);
+  animation:sheetIn var(--dur) var(--ease)}
+.modal-head{padding:var(--sp4);border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg);z-index:2}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes sheetIn{from{opacity:0;transform:translateY(14px) scale(.99)}to{opacity:1;transform:none}}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:none}}
+/* Puxador da folha — só em telas de toque */
+.grabber{display:none;width:36px;height:5px;border-radius:3px;background:var(--border2);margin:8px auto 0;flex:none}
+.modal-head h3{flex:1;color:var(--text);font-size:var(--fs-headline);font-weight:600;letter-spacing:-.01em}
 .modal-body{padding:16px;display:flex;flex-direction:column;gap:14px}
 .modal-foot{padding:12px 16px;border-top:0.5px solid var(--border);display:flex;gap:8px;align-items:center}
 .modal-foot .spacer{flex:1}
@@ -201,7 +268,7 @@ select option{background:var(--bg2);color:var(--text)}
 
 /* Admin */
 .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.section-head h3{font-size:14px;font-weight:600}
+/* tipografia definida acima em .section-head h3 */
 .user-row{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px}
 .user-row .uname{flex:1;font-size:13px}
 .admin-tag{font-size:11px;padding:2px 8px;border-radius:4px;background:var(--amber-light);color:var(--amber);font-weight:500}
@@ -229,54 +296,56 @@ select option{background:var(--bg2);color:var(--text)}
 
 /* Responsive — mobile first */
 @media(max-width:640px){
-  .main{padding:10px}
-  .topbar{padding:0 12px;height:48px}
-  .topbar-logo span{font-size:13px}
-  .topbar-user span:last-of-type{display:none} /* hide chevron on mobile */
-  .nav-tabs{padding:0 8px}
-  .nav-tab{padding:10px 10px;font-size:12px;gap:3px}
-  .nav-tab svg{display:none}
-  /* Calendar — fixed height on mobile too */
-  .cal-cell{height:60px;min-height:60px;max-height:60px;padding:3px}
-  .day-n{font-size:11px;width:18px;height:18px}
-  .ev{font-size:9px;padding:1px 3px}
-  .cal-head{font-size:10px;padding:5px 2px}
-  /* Modal full screen on mobile */
-  .overlay{padding:0;align-items:flex-end}
-  .modal{max-width:100%;border-radius:var(--radius) var(--radius) 0 0;max-height:92vh}
-  .day-popup{padding:0;align-items:flex-end}
-  .day-popup-box{max-width:100%;border-radius:var(--radius) var(--radius) 0 0;max-height:88vh}
-  .eq-detail{padding:0;align-items:flex-end}
-  .eq-detail-box{max-width:100%;border-radius:var(--radius) var(--radius) 0 0;max-height:88vh}
+  /* Corpo do texto maior no celular, como recomenda a HIG */
+  body{font-size:var(--fs-body)}
+  .main{padding:var(--sp3) var(--sp3) var(--sp8)}
+  .topbar{padding:0 var(--sp3);min-height:50px;height:auto}
+  .topbar-logo span{font-size:var(--fs-subhead)}
+  .topbar-user span:last-of-type{display:none}
+  .nav-tabs{padding:0 var(--sp2);position:sticky;top:0;z-index:40}
+  .nav-tab{padding:11px 12px;font-size:var(--fs-footnote);gap:5px}
+  .nav-tab .ico{display:none}
+  /* Calendário com células mais altas e texto legível */
+  .cal-cell{height:68px;min-height:68px;max-height:68px;padding:4px 3px}
+  .day-n{font-size:var(--fs-caption);width:22px;height:22px}
+  .ev{font-size:10px;padding:2px 4px;line-height:1.3}
+  .cal-head{font-size:11px;padding:6px 2px}
+  .cal-header h2{font-size:var(--fs-headline)}
+  .cal-header{gap:var(--sp2);flex-wrap:wrap}
+  /* Modais viram folhas que sobem de baixo */
+  .overlay,.day-popup,.eq-detail{padding:0;align-items:flex-end}
+  .modal,.day-popup-box,.eq-detail-box{max-width:100%;border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+    max-height:92vh;border-bottom:none;animation:sheetUp var(--dur) var(--ease)}
+  .grabber{display:block}
+  .modal-head,.day-popup-head,.eq-detail-head{padding-top:var(--sp2)}
+  /* Rodapé fixo: ação principal sempre alcançável com o polegar */
+  .modal-foot{position:sticky;bottom:0;background:var(--bg);z-index:2}
+  .modal-foot .btn{flex:1}
+  .modal-foot .btn-danger{flex:0 0 auto}
   /* Login */
-  .login-screen{margin:20px auto;max-width:100%;border-radius:0;border-left:none;border-right:none;box-shadow:none}
-  /* Forms */
+  .login-screen{margin:var(--sp5) auto;max-width:100%;border-radius:0;border-left:none;border-right:none;box-shadow:none}
+  /* Formulários */
   .shaker-grid{grid-template-columns:1fr}
-  .period-grid{gap:4px}
-  .period-pill{padding:7px 10px;font-size:12px}
-  .type-toggle{flex-direction:column;gap:6px}
-  .type-btn{padding:10px}
-  /* Filters */
-  .filter-period{gap:3px}
-  .filter-period-btn{padding:5px 8px;font-size:11px}
-  /* Eq grid */
+  .period-grid{gap:var(--sp2)}
+  .period-pill{padding:9px 14px;font-size:var(--fs-footnote)}
+  .type-btn{padding:10px;font-size:var(--fs-subhead)}
+  /* Evita o zoom automático do iOS ao focar um campo */
+  input,select,textarea{font-size:16px}
+  /* Filtros */
+  .filter-period{gap:var(--sp1)}
+  .filter-period-btn{padding:7px 11px;font-size:var(--fs-caption)}
   .eq-grid{grid-template-columns:repeat(2,1fr)}
-  /* Cal header */
-  .cal-header{gap:6px}
-  .cal-header h2{font-size:14px}
-  /* Buttons */
-  .btn-sm{padding:6px 10px}
-  /* Cards */
-  .card{padding:12px}
-  /* Admin */
+  .btn-sm{padding:7px 12px;font-size:var(--fs-footnote)}
+  .card{padding:var(--sp4)}
   .metric-row{grid-template-columns:repeat(2,1fr)}
-  .user-row{flex-wrap:wrap;gap:6px}
+  .user-row{flex-wrap:wrap;gap:var(--sp2)}
+  .user-row .btn{flex:1;min-width:0}
 }
 @media(max-width:380px){
-  .nav-tab{padding:10px 8px;font-size:11px}
-  .cal-cell{height:50px;min-height:50px;max-height:50px}
-  .ev{font-size:8px;padding:1px 2px}
-  .ev-more{font-size:8px}
+  .nav-tab{padding:11px 9px;font-size:var(--fs-caption)}
+  .cal-cell{height:60px;min-height:60px;max-height:60px}
+  .ev{font-size:9px}
+  .ev-more{font-size:9px}
 }
 
 /* Login screen */
@@ -291,8 +360,8 @@ select option{background:var(--bg2);color:var(--text)}
 .divider::before,.divider::after{content:'';flex:1;height:0.5px;background:var(--border2)}
 
 /* Day popup */
-.day-popup{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:150;padding:16px}
-.day-popup-box{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);width:100%;max-width:420px;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.day-popup{position:fixed;inset:0;background:rgba(0,0,0,.32);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:150;padding:16px;animation:fadeIn var(--dur-fast) ease-out}
+.day-popup-box{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);width:100%;max-width:420px;max-height:80vh;overflow-y:auto;overscroll-behavior:contain;box-shadow:var(--shadow-lg);animation:sheetIn var(--dur) var(--ease)}
 .day-popup-head{padding:14px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:8px;position:sticky;top:0;background:var(--bg)}
 .day-popup-head h3{flex:1;font-size:14px;font-weight:600}
 .day-popup-body{padding:12px 16px;display:flex;flex-direction:column;gap:8px}
@@ -304,8 +373,8 @@ select option{background:var(--bg2);color:var(--text)}
 .day-popup-foot{padding:12px 16px;border-top:0.5px solid var(--border);display:flex;gap:8px}
 
 /* Eq detail modal */
-.eq-detail{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:150;padding:16px}
-.eq-detail-box{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);width:100%;max-width:440px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.eq-detail{position:fixed;inset:0;background:rgba(0,0,0,.32);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:150;padding:16px;animation:fadeIn var(--dur-fast) ease-out}
+.eq-detail-box{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);width:100%;max-width:440px;max-height:85vh;overflow-y:auto;overscroll-behavior:contain;box-shadow:var(--shadow-lg);animation:sheetIn var(--dur) var(--ease)}
 .eq-detail-head{padding:14px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:8px;position:sticky;top:0;background:var(--bg)}
 .eq-detail-head h3{flex:1;font-size:14px;font-weight:600}
 .eq-detail-body{padding:12px 16px;display:flex;flex-direction:column;gap:10px}
@@ -330,22 +399,25 @@ select option{background:var(--bg2);color:var(--text)}
 .strip-other{background:var(--amber)}
 
 /* Maintenance booking */
-.type-toggle{display:flex;gap:6px;margin-bottom:2px}
-.type-btn{flex:1;padding:8px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:500;text-align:center;transition:all .15s;background:var(--bg2);color:var(--text)}
-.type-btn.sel-exp{background:#E6F1FB;color:#185FA5;border-color:#378ADD}
-.type-btn.sel-manut{background:#FAEEDA;color:#854F0B;border-color:#BA7517}
-.ev-manut{background:#FAEEDA;color:#854F0B}
-.badge-manut{background:#FAEEDA;color:#854F0B}
-.manut-banner{background:#FAEEDA;border:0.5px solid #BA7517;border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:#854F0B;display:flex;align-items:center;gap:6px}
+/* Controle segmentado no estilo iOS */
+.type-toggle{display:flex;gap:2px;padding:2px;background:var(--bg3);border-radius:10px;border:0.5px solid var(--border)}
+.type-btn{flex:1;padding:8px 10px;border:1px solid transparent;border-radius:8px;cursor:pointer;font-size:var(--fs-footnote);
+  font-weight:500;text-align:center;transition:background var(--dur-fast) ease,color var(--dur-fast) ease,box-shadow var(--dur-fast) ease;
+  background:transparent;color:var(--text2);display:flex;align-items:center;justify-content:center;gap:6px;min-height:36px}
+.type-btn:hover{color:var(--text)}
+.type-btn.sel-exp{background:var(--bg);color:var(--blue-dark);box-shadow:var(--shadow-sm);font-weight:600}
+.type-btn.sel-manut{background:var(--bg);color:var(--amber);box-shadow:var(--shadow-sm);font-weight:600}
+.badge-manut{background:var(--amber-light);color:var(--amber)}
+.manut-banner{background:var(--amber-light);border:0.5px solid var(--amber);border-radius:var(--radius-sm);padding:8px 12px;font-size:var(--fs-caption);color:var(--amber);display:flex;align-items:center;gap:6px;line-height:1.45}
 
 /* External user badge */
-.badge-ext{background:#F1EFE8;color:#5F5E5A;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:500}
-.user-ext-tag{font-size:11px;padding:2px 7px;border-radius:4px;background:#F1EFE8;color:#5F5E5A;font-weight:500}
+.badge-ext{background:var(--gray-light);color:var(--gray);font-size:10px;padding:1px 6px;border-radius:4px;font-weight:500}
+.user-ext-tag{font-size:11px;padding:2px 7px;border-radius:4px;background:var(--gray-light);color:var(--gray);font-weight:500}
 /* Second user */
 .second-user-box{background:var(--bg2);border:0.5px solid var(--border2);border-radius:var(--radius-sm);padding:10px 12px;margin-top:0}
 .second-user-box p{font-size:12px;color:var(--text);margin-bottom:8px;font-weight:500;display:flex;align-items:center;gap:5px}
 /* Protocol field */
-.protocol-badge{font-size:10px;padding:2px 7px;border-radius:4px;background:#E6F1FB;color:#185FA5;font-weight:500}
+.protocol-badge{font-size:11px;padding:2px 7px;border-radius:4px;background:var(--blue-light);color:var(--blue-dark);font-weight:500}
 /* Notification dot */
 .notif-dot{width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block;margin-left:4px;vertical-align:middle}
 
@@ -355,7 +427,7 @@ select option{background:var(--bg2);color:var(--text)}
 .shaker-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .temp-row{display:flex;gap:6px;align-items:center}
 .temp-row span{font-size:12px;color:var(--text2);white-space:nowrap}
-.badge-shaker{background:#EAF3DE;color:#3B6D11;font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500}
+.badge-shaker{background:var(--green-light);color:var(--green-dark);font-size:11px;padding:2px 7px;border-radius:4px;font-weight:500}
 .overnight-toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);margin-top:6px;cursor:pointer}
 .overnight-toggle input{width:16px;height:16px;cursor:pointer;accent-color:var(--blue)}
 
@@ -411,7 +483,7 @@ select option{background:var(--bg2);color:var(--text)}
     <span style="font-size:18px;font-weight:700">LBEA Reservas</span>
   </div>
   <div style="display:flex;align-items:center;gap:8px;color:#888;font-size:13px">
-    <div style="width:16px;height:16px;border:2px solid #e0e0e0;border-top-color:#378ADD;border-radius:50%;animation:spin .7s linear infinite"></div>
+    <div style="width:16px;height:16px;border:2px solid rgba(128,128,128,.25);border-top-color:#378ADD;border-radius:50%;animation:spin .7s linear infinite"></div>
     Verificando login...
   </div>
 </div>
@@ -459,6 +531,8 @@ select option{background:var(--bg2);color:var(--text)}
   </div>
 </div>
 
+<div class="toast-wrap" id="toast-wrap" aria-live="polite" aria-atomic="true"></div>
+
 <!-- ═══════════════════════════════════════ MAIN APP -->
 <div id="app" style="display:none">
   <div class="app-shell">
@@ -498,10 +572,10 @@ select option{background:var(--bg2);color:var(--text)}
       <!-- CALENDÁRIO -->
       <div class="panel active" id="panel-calendar">
         <div class="cal-header">
-          <button class="btn btn-icon" onclick="changeMonth(-1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <button class="btn btn-icon" aria-label="Mês anterior" title="Mês anterior" onclick="changeMonth(-1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
           <h2 id="cal-title"></h2>
           <span id="cal-bk-count" style="font-size:12px;color:var(--text2);font-weight:400"></span>
-          <button class="btn btn-icon" onclick="changeMonth(1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+          <button class="btn btn-icon" aria-label="Próximo mês" title="Próximo mês" onclick="changeMonth(1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
           <button class="btn btn-primary btn-sm" onclick="openNew(null)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
             Nova reserva
@@ -604,10 +678,11 @@ select option{background:var(--bg2);color:var(--text)}
 
 <!-- DAY POPUP -->
 <div class="day-popup" id="day-popup" style="display:none" onclick="if(event.target===this)closeDayPopup()">
-  <div class="day-popup-box">
+  <div class="day-popup-box" role="dialog" aria-modal="true" aria-label="Reservas do dia">
+    <div class="grabber" data-close="closeDayPopup"></div>
     <div class="day-popup-head">
       <h3 id="day-popup-title">Reservas do dia</h3>
-      <button class="btn btn-icon" onclick="closeDayPopup()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <button class="btn btn-icon" aria-label="Fechar" onclick="closeDayPopup()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="day-popup-body" id="day-popup-body"></div>
     <div class="day-popup-foot">
@@ -621,10 +696,11 @@ select option{background:var(--bg2);color:var(--text)}
 
 <!-- EQ DETAIL MODAL -->
 <div class="eq-detail" id="eq-detail" style="display:none" onclick="if(event.target===this)closeEqDetail()">
-  <div class="eq-detail-box">
+  <div class="eq-detail-box" role="dialog" aria-modal="true" aria-label="Detalhes do equipamento">
+    <div class="grabber" data-close="closeEqDetail"></div>
     <div class="eq-detail-head">
       <h3 id="eq-detail-name">Equipamento</h3>
-      <button class="btn btn-icon" onclick="closeEqDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <button class="btn btn-icon" aria-label="Fechar" onclick="closeEqDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="eq-detail-body" id="eq-detail-body"></div>
     <div class="eq-detail-foot">
@@ -638,10 +714,11 @@ select option{background:var(--bg2);color:var(--text)}
 
 <!-- ═══════════════════════════════════════ BOOKING MODAL -->
 <div class="overlay" id="booking-modal" style="display:none" onclick="if(event.target===this)closeModal()">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="grabber" data-close="closeModal"></div>
     <div class="modal-head">
       <h3 id="modal-title">Nova reserva</h3>
-      <button class="btn btn-icon" onclick="closeModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <button class="btn btn-icon" aria-label="Fechar" onclick="closeModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="modal-body">
       <div class="field">
@@ -658,6 +735,7 @@ select option{background:var(--bg2);color:var(--text)}
           <svg class="ico ico-sm"><use href="#i-warn"/></svg> Manutenção bloqueia o equipamento (e coluna) para todos os usuários neste período.
         </div>
       </div>
+      <div class="form-section">Quando</div>
       <div class="field">
         <label>Data</label>
         <input type="text" id="bk-date-display" readonly style="background:var(--bg2);cursor:default">
@@ -728,7 +806,7 @@ select option{background:var(--bg2);color:var(--text)}
               Equilibrar coluna overnight (noite anterior)
             </label>
             <div id="equil-on-info" style="display:none;background:var(--blue-light);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:12px;color:var(--blue-dark);line-height:1.5">
-              <svg class="ico ico-sm"><use href="#i-moon"/></svg> A coluna ficará reservada também na noite anterior para equilibração. Isso aparecerá no calendário como reserva do dia anterior.
+              <svg class="ico ico-sm"><use href="#i-moon"/></svg> A coluna fica bloqueada para outros usuários na noite anterior (17h–22h) e aparece no calendário nesse dia.
             </div>
             <div class="field">
               <label>Período da coluna</label>
@@ -754,6 +832,7 @@ select option{background:var(--bg2);color:var(--text)}
           </div>
         </div>
       </div>
+      <div class="form-section">Quem</div>
       <div class="field">
         <label>Usuário principal</label>
         <select id="bk-user"></select>
@@ -773,6 +852,7 @@ select option{background:var(--bg2);color:var(--text)}
           <input type="text" id="bk-inst" placeholder="ex: Unicamp, Lab 154, Lab 250...">
         </div>
       </div>
+      <div class="form-section">Detalhes</div>
       <div class="field">
         <label>Proteína / Amostra / Organismo</label>
         <input type="text" id="bk-protein" placeholder="ex: MadB, NigBII/I, BL21(DE3)...">
@@ -877,10 +957,11 @@ select option{background:var(--bg2);color:var(--text)}
 
 <!-- EDIT USER INSTITUTION MODAL -->
 <div class="overlay" id="eq-edit-modal" style="display:none" onclick="if(event.target===this)hide('eq-edit-modal')">
-  <div class="modal" style="max-width:420px">
+  <div class="modal" style="max-width:420px" role="dialog" aria-modal="true" aria-labelledby="eqm-title">
+    <div class="grabber" data-close="hideEqEdit"></div>
     <div class="modal-head">
       <h3 id="eqm-title">Novo equipamento</h3>
-      <button class="btn btn-icon" onclick="hide('eq-edit-modal')"><svg class="ico"><use href="#i-x"/></svg></button>
+      <button class="btn btn-icon" aria-label="Fechar" onclick="hide('eq-edit-modal')"><svg class="ico"><use href="#i-x"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="eqm-id">
@@ -929,10 +1010,11 @@ select option{background:var(--bg2);color:var(--text)}
 </div>
 
 <div class="overlay" id="add-user-modal" style="display:none" onclick="if(event.target===this)this.style.display='none'">
-  <div class="modal" style="max-width:360px">
+  <div class="modal" style="max-width:360px" role="dialog" aria-modal="true">
+    <div class="grabber" data-close="hideAddUser"></div>
     <div class="modal-head">
       <h3>Editar usuário</h3>
-      <button class="btn btn-icon" onclick="document.getElementById('add-user-modal').style.display='none'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <button class="btn btn-icon" aria-label="Fechar" onclick="hideAddUser()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="modal-body">
       <p style="font-size:13px;font-weight:500" id="au-name-display"></p>
@@ -1223,16 +1305,19 @@ async function sendResetEmail(){
   }
 }
 
+let _listenersOn=false; // evita registrar os listeners mais de uma vez
 function startApp(){
   hide('login-screen');
   show('app');
   updateTopbar();
-  if(currentUser.isAdmin) document.getElementById('admin-tab').style.display='flex';
-  else document.getElementById('admin-tab').style.display='none';
-  listenBookings();
-  listenUsers();
-  listenColCounters();
-  listenEquipment();
+  document.getElementById('admin-tab').style.display=currentUser.isAdmin?'flex':'none';
+  if(!_listenersOn){
+    _listenersOn=true;
+    listenBookings();
+    listenUsers();
+    listenColCounters();
+    listenEquipment();
+  }
   renderCalendar();
   populateFilters();
 }
@@ -1283,6 +1368,7 @@ async function listenColCounters(){
 
 function logout(){
   if(!confirm(`Sair da conta de ${currentUser?.name||'usuário'}?`))return;
+  _listenersOn=false;
   window._pendingProfile=null;
   hide('name-picker-screen');
   auth.signOut();
@@ -1329,6 +1415,9 @@ function goToday(){
 
 function bksForDate(ds){
   return bookings.filter(b=>{
+    // Noite de equilibração aparece no dia anterior
+    const eq_=equilSlot(b);
+    if(eq_&&eq_.date===ds) return true;
     // AKTA date range
     if(b.period==='multidias'&&b.dateStart&&b.dateEnd) return ds>=b.dateStart&&ds<=b.dateEnd;
     if(b.date===ds) return true;
@@ -1370,13 +1459,20 @@ function calCell(dt,dim,today){
   const bks=bksForDate(ds);
   const dnClass=isToday?' style="background:var(--blue);color:#fff;border-radius:50%"':'';
   let chips='';
+  const short=id=>eqName(id).replace('ÄKTA ','').replace('Superdex ','Sdx ').replace('Superose ','Srose ').replace('Shaker ','').replace('Termociclador ','TC ').replace('PEAQ-ITC','ITC');
   bks.slice(0,2).forEach(b=>{
+    const userShort=b.user.split(' ')[0];
+    const eSlot=equilSlot(b);
+    // Neste dia a reserva aparece só por causa da equilibração da véspera
+    if(eSlot&&eSlot.date===ds&&b.date!==ds){
+      chips+=`<div class="ev ev-col" title="${b.user} — ${eqName(eSlot.col)} em equilibração para ${fmtBR(b.date)}">${ico('moon','ico-xs')} ${short(eSlot.col)}</div>`;
+      return;
+    }
     const e=eqById(b.equipment);
     const cat=e?e.cat:'outro';
-    const eqShort=eqName(b.equipment).replace('ÄKTA ','').replace('Superdex ','Sdx ').replace('Superose ','Srose ').replace('Shaker ','').replace('Termociclador ','TC ').replace('PEAQ-ITC','ITC');
+    const eqShort=short(b.equipment);
     const label=b.comboColumn&&b.comboColumn!=='_cromatografia'?eqShort+'+':eqShort;
     const evCls=b.bookingType==='manutencao'?'ev-manut':evClass(cat);
-    const userShort=b.user.split(' ')[0];
     const evLabel=b.bookingType==='manutencao'?(ico('wrench','ico-xs')+' '+userShort):(userShort+': '+label);
     const tooltip=b.user+' — '+eqName(b.equipment)+(b.protein?' ('+b.protein+')':'');
     chips+=`<div class="ev ${evCls}" title="${tooltip}">${evLabel}</div>`;
@@ -1676,6 +1772,22 @@ function dateRange(start,end){
   return dates;
 }
 
+function prevDay(ds){
+  if(!ds) return null;
+  const [y,m,d]=ds.split('-').map(Number);
+  const dt=new Date(y,m-1,d); dt.setDate(dt.getDate()-1);
+  return fmtDate(dt);
+}
+// Data e período da noite de equilibração de uma reserva (ou null)
+function equilSlot(b){
+  if(!b||!b.equilON||!b.comboColumn||b.comboColumn==='_cromatografia') return null;
+  const eff=getEffectivePeriod(b.period,b.colPeriod);
+  const first=getEffectiveDates(eff,b.date,
+    (b.colPeriod==='multidias')?b.colDateStart:b.dateStart,
+    (b.colPeriod==='multidias')?b.colDateEnd:b.dateEnd)[0];
+  return first?{date:prevDay(first), period:'noite', col:b.comboColumn}:null;
+}
+
 function getEffectiveDates(period, mainDate, dateStart, dateEnd){
   return period==='multidias' ? dateRange(dateStart,dateEnd) : [mainDate];
 }
@@ -1684,7 +1796,7 @@ function getEffectivePeriod(period, colPeriod){
   return (colPeriod&&colPeriod!=='mesmo') ? colPeriod : period;
 }
 
-function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,colDateStart,colDateEnd){
+function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,colDateStart,colDateEnd,equilON){
   const aktaDates = getEffectiveDates(period,date,dateStart,dateEnd);
   // Effective column period
   const effColPeriod = col ? getEffectivePeriod(period,colPeriod) : null;
@@ -1726,6 +1838,25 @@ function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,
           return `${eqName(col)} já reservada neste período por ${b.user}.`;
       }
     }
+
+    // Noite de equilibração: ocupa a coluna na véspera
+    const bEquil=equilSlot(b);
+    if(col&&col!=='_cromatografia'&&equilON&&colDates.length){
+      const myEquilDate=prevDay(colDates[0]);
+      // minha véspera x coluna que o outro já usa naquele dia
+      if(b.comboColumn===col&&bColDates.includes(myEquilDate)&&periodsOverlap('noite',null,null,bEffColPeriod||b.period,b.startTime,b.endTime))
+        return `${eqName(col)} está reservada em ${fmtBR(myEquilDate)} por ${b.user} — não é possível equilibrar na noite anterior.`;
+      if(b.equipment===col&&bAktaDates.includes(myEquilDate)&&periodsOverlap('noite',null,null,b.period,b.startTime,b.endTime))
+        return `${eqName(col)} está reservada em ${fmtBR(myEquilDate)} por ${b.user} — não é possível equilibrar na noite anterior.`;
+      // minha véspera x véspera de outra reserva
+      if(bEquil&&bEquil.col===col&&bEquil.date===myEquilDate)
+        return `${eqName(col)} já está em equilibração na noite de ${fmtBR(myEquilDate)} por ${b.user}.`;
+    }
+    // véspera de outra reserva x minha reserva da coluna
+    if(bEquil&&col&&bEquil.col===col&&colDates.includes(bEquil.date)&&periodsOverlap(effColPeriod,s,e,'noite',null,null))
+      return `${eqName(col)} estará em equilibração na noite de ${fmtBR(bEquil.date)} para a reserva de ${b.user}.`;
+    if(bEquil&&bEquil.col===eq&&aktaDates.includes(bEquil.date)&&periodsOverlap(period,s,e,'noite',null,null))
+      return `${eqName(eq)} estará em equilibração na noite de ${fmtBR(bEquil.date)} para a reserva de ${b.user}.`;
 
     // Check if new booking is a column and conflicts with existing
     const eObj=eqById(eq);
@@ -1789,7 +1920,8 @@ async function saveBooking(){
   }
   if(col&&selectedColPeriod==='multidias'&&(!colDateStart||!colDateEnd)){ showConflict('Informe as datas de uso da coluna.'); return; }
 
-  const conflict=checkConflict(date,selectedPeriod,st,en,eq,col,editingId,dateStart,dateEnd,selectedColPeriod,colDateStart,colDateEnd);
+  const equilONVal=document.getElementById('bk-equil-on')?.checked||false;
+  const conflict=checkConflict(date,selectedPeriod,st,en,eq,col,editingId,dateStart,dateEnd,selectedColPeriod,colDateStart,colDateEnd,equilONVal);
   if(conflict){ showConflict(conflict); return; }
 
   // Warn if column near/at usage limit
@@ -1844,7 +1976,9 @@ Deseja continuar?`))return;
         await incrementColUse(cid);
       }
     }
+    const wasEdit=!!editingId;
     closeModal();
+    toast(wasEdit?'Reserva atualizada':'Reserva confirmada');
   }catch(err){
     showConflict('Erro ao salvar: '+err.message);
   }finally{
@@ -1879,6 +2013,7 @@ async function deleteBooking(){
       }
     }
     closeModal();
+    toast('Reserva excluída','trash');
   }catch(err){
     alert('Erro ao excluir: '+err.message);
   }finally{
@@ -1971,7 +2106,7 @@ function renderReservas(){
       else colTime=` · Coluna: ${pl[b.colPeriod]||b.colPeriod}`;
     }
     const isManut=b.bookingType==='manutencao';
-    return `<div class="reserva-item" onclick="openEdit('${b.id}')" style="${isManut?'border-left:3px solid #BA7517':''}">
+    return `<div class="reserva-item" onclick="openEdit('${b.id}')" style="${isManut?'border-left:3px solid var(--amber)':''}">
       <div class="ri-top">
         ${isManut?`<span class="badge badge-manut">${ico('wrench','ico-xs')} Manutenção</span>`:''}
         <span class="badge ${eqBadge(cat)||'badge-other'}">${eqName(b.equipment)}</span>
@@ -1990,10 +2125,11 @@ function renderReservas(){
 // ═══════════════════════════════════════════════════
 function renderEquipamentos(){
   const today=fmtDate(new Date());
+  const todayAll=bksForDate(today); // calculado uma vez, não por equipamento
   const grid=document.getElementById('eq-grid');
   if(!eqActive().length){ grid.innerHTML='<div class="empty-state" style="grid-column:1/-1">Nenhum equipamento disponível. Um administrador pode cadastrá-los na aba Admin.</div>'; return; }
   grid.innerHTML=eqActive().map(e=>{
-    const todayBks=bookings.filter(b=>bksForDate(today).includes(b)&&(b.equipment===e.id||b.comboColumn===e.id));
+    const todayBks=todayAll.filter(b=>b.equipment===e.id||b.comboColumn===e.id);
     const busy=todayBks.length>0;
     const isManut=busy&&todayBks.some(b=>b.bookingType==='manutencao');
     const cat=e.cat;
@@ -2025,6 +2161,78 @@ function renderEquipamentos(){
   }).join('');
 }
 
+
+
+// Confirmação discreta: toda ação recebe resposta visível
+function toast(msg, iconName){
+  const wrap=document.getElementById('toast-wrap');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  const el=document.createElement('div');
+  el.className='toast';
+  el.innerHTML=`${ico(iconName||'check')}<span>${msg}</span>`;
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),200); }, 2400);
+}
+
+// ═══════════════════════════════════════════════════
+// FOLHAS: arrastar para fechar, foco e trava de rolagem
+// (padrões de folha modal do iOS)
+// ═══════════════════════════════════════════════════
+function hideEqEdit(){ hide('eq-edit-modal'); }
+function hideAddUser(){ hide('add-user-modal'); }
+
+// Arrastar o puxador (ou o cabeçalho) para baixo fecha a folha
+function initSheetGestures(){
+  document.querySelectorAll('.grabber').forEach(g=>{
+    const sheet=g.parentElement;
+    const closer=g.dataset.close;
+    let startY=null, dy=0, dragging=false;
+    const onStart=e=>{
+      if(sheet.scrollTop>0) return;           // só arrasta se já está no topo
+      startY=e.touches[0].clientY; dy=0; dragging=true;
+      sheet.style.transition='none';
+    };
+    const onMove=e=>{
+      if(!dragging) return;
+      dy=e.touches[0].clientY-startY;
+      if(dy<0){ dy=0; return; }
+      sheet.style.transform=`translateY(${dy}px)`;
+      if(dy>4) e.preventDefault();
+    };
+    const onEnd=()=>{
+      if(!dragging) return;
+      dragging=false;
+      sheet.style.transition='';
+      sheet.style.transform='';
+      if(dy>90 && typeof window[closer]==='function') window[closer]();
+    };
+    [g, sheet.querySelector('.modal-head,.day-popup-head,.eq-detail-head')].filter(Boolean).forEach(el=>{
+      el.addEventListener('touchstart',onStart,{passive:true});
+      el.addEventListener('touchmove',onMove,{passive:false});
+      el.addEventListener('touchend',onEnd);
+      el.addEventListener('touchcancel',onEnd);
+    });
+  });
+}
+document.addEventListener('DOMContentLoaded',initSheetGestures);
+
+// Impede a página de rolar por trás da folha aberta
+const _sheetIds=['booking-modal','day-popup','eq-detail','eq-edit-modal','add-user-modal'];
+function syncBodyScrollLock(){
+  const anyOpen=_sheetIds.some(id=>{
+    const el=document.getElementById(id);
+    return el && el.style.display!=='none' && el.style.display!=='';
+  });
+  document.body.style.overflow=anyOpen?'hidden':'';
+}
+// Observa a abertura/fechamento das folhas sem alterar cada função
+document.addEventListener('DOMContentLoaded',()=>{
+  _sheetIds.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) new MutationObserver(syncBodyScrollLock).observe(el,{attributes:true,attributeFilter:['style']});
+  });
+});
 
 // ═══════════════════════════════════════════════════
 // ADMIN — GESTÃO DE EQUIPAMENTOS
@@ -2076,6 +2284,7 @@ async function seedEquipment(){
       batch.set(db.collection('equipment').doc(id),{...rest, order:i, active:true, createdAt:new Date().toISOString()},{merge:true});
     });
     await batch.commit();
+    toast('Equipamentos importados');
   }catch(err){ alert('Erro ao importar: '+err.message); }
   finally{ if(btn){ btn.innerHTML='<svg class="ico ico-sm"><use href="#i-download"/></svg> Importar padrões'; btn.disabled=false; } }
 }
@@ -2145,6 +2354,7 @@ async function saveEqEdit(){
       await db.collection('equipment').doc(newId).set({...data, order:maxOrder+1, createdAt:new Date().toISOString()});
     }
     hide('eq-edit-modal');
+    toast(id?'Equipamento atualizado':'Equipamento adicionado');
   }catch(err){ eqmError('Erro ao salvar: '+err.message); }
   finally{ btn.textContent='Salvar'; btn.disabled=false; }
 }
@@ -2156,7 +2366,7 @@ async function deleteEq(){
   const usos=bookings.filter(b=>b.equipment===id||b.comboColumn===id).length;
   if(usos>0){
     if(!confirm(`"${e.name}" tem ${usos} reserva(s) no histórico e não pode ser excluído — as reservas ficariam sem identificação.\n\nDeseja marcá-lo como indisponível? Ele sai da lista de reservas, mas o histórico continua legível.`)) return;
-    try{ await db.collection('equipment').doc(id).update({active:false}); hide('eq-edit-modal'); }
+    try{ await db.collection('equipment').doc(id).update({active:false}); hide('eq-edit-modal'); toast('Equipamento marcado como indisponível','eye-off'); }
     catch(err){ eqmError('Erro: '+err.message); }
     return;
   }
@@ -2165,6 +2375,7 @@ async function deleteEq(){
     await db.collection('equipment').doc(id).delete();
     if(e.cat==='coluna'){ try{ await db.collection('colCounters').doc(id).delete(); }catch(_){} }
     hide('eq-edit-modal');
+    toast('Equipamento excluído','trash');
   }catch(err){ eqmError('Erro ao excluir: '+err.message); }
 }
 
@@ -2406,14 +2617,14 @@ function openEqDetail(eqId){
   const cat=e.cat;
 
   document.getElementById('eq-detail-name').textContent = e.name;
-  const stripColor=e.cat==='akta'?'#378ADD':e.cat==='coluna'?'#639922':'#BA7517';
+  const stripColor=e.cat==='akta'?'var(--blue)':e.cat==='coluna'?'var(--green)':'var(--amber)';
   document.getElementById('eq-detail-name').style.cssText+=`;border-left:3px solid ${stripColor};padding-left:8px`;
 
   const isCol=cat==='coluna';
   const cs=isCol?getColStatus(e.id):null;
   const tubeHeight=isCol?72:0;
   const fillPct=isCol?cs.pct:0;
-  const fillColor=isCol?(cs.status==='danger'?'#E24B4A':cs.status==='warn'?'#BA7517':'#378ADD'):'#378ADD';
+  const fillColor=isCol?(cs.status==='danger'?'var(--red)':cs.status==='warn'?'var(--amber)':'var(--blue)'):'var(--blue)';
 
   let html = `
     <div class="eq-stat">
@@ -2556,6 +2767,7 @@ Isso indica que a coluna foi limpa/regenerada.`))return;
     lastReset: new Date().toISOString(),
     lastResetBy: currentUser.name
   },{merge:true});
+  toast(`Contador de ${colName} zerado`,'refresh');
 }
 
 async function setColLimit(colId){
