@@ -95,6 +95,20 @@
 .field-hint{font-size:11px;color:var(--text3);line-height:1.45;margin-top:2px}
 .check-label{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:500}
 .check-label input{width:auto;margin:0}
+.aviso-preview{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius-sm);
+  padding:11px 12px;font-size:var(--fs-caption);line-height:1.55;white-space:pre-wrap;color:var(--text2);
+  max-height:190px;overflow:auto}
+.solic-item{background:var(--amber-light);border:0.5px solid var(--amber);border-radius:var(--radius-sm);padding:11px 12px;margin-bottom:8px}
+.solic-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:var(--fs-footnote)}
+.solic-meta{font-size:var(--fs-caption);color:var(--text2);margin-top:4px}
+.solic-just{display:flex;gap:6px;align-items:flex-start;font-size:var(--fs-caption);color:var(--text);
+  background:var(--bg);border-radius:6px;padding:7px 9px;margin-top:7px;line-height:1.45}
+.badge-pend{background:var(--amber-light);color:var(--amber)}
+.badge-rej{background:var(--red-light);color:var(--red)}
+.reserva-item.is-pending{border-left:3px solid var(--amber);border-style:dashed}
+.reserva-item.is-rejected{opacity:.6}
+.ev-pend{background:var(--amber-light);color:var(--amber);border:1px dashed var(--amber)}
+
 .eq-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:0.5px solid var(--border)}
 .eq-row:last-child{border-bottom:none}
 .eq-row-dot{width:8px;height:8px;border-radius:50%;flex:none}
@@ -591,6 +605,7 @@ select option{background:var(--bg2);color:var(--text)}
 </div>
 
 <div id="offline-bar" role="status" style="display:none">Sem conexão — as alterações não serão salvas até a rede voltar</div>
+<div class="overlay" id="aviso-box" style="display:none" onclick="if(event.target===this)fecharAviso()"></div>
 <div class="toast-wrap" id="toast-wrap" aria-live="polite" aria-atomic="true"></div>
 
 <!-- ═══════════════════════════════════════ MAIN APP -->
@@ -624,7 +639,7 @@ select option{background:var(--bg2);color:var(--text)}
       </div>
       <div class="nav-tab" id="admin-tab" data-tab="admin" onclick="switchTab(this)" style="display:none">
         <svg class="ico"><use href="#i-sliders"/></svg>
-        Admin
+        Admin<span id="pend-badge" style="display:none;background:var(--amber);color:#fff;border-radius:9px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:5px">0</span>
       </div>
     </div>
 
@@ -682,6 +697,14 @@ select option{background:var(--bg2);color:var(--text)}
       <!-- ADMIN -->
       <div class="panel" id="panel-admin">
         <div style="display:grid;gap:16px">
+          <!-- Solicitações de dias extras -->
+          <div class="card" id="card-solicitacoes">
+            <div class="section-head">
+              <h3>Solicitações de dias extras</h3>
+              <span id="solic-count" style="font-size:var(--fs-caption);color:var(--text2)"></span>
+            </div>
+            <div id="admin-solic-list"></div>
+          </div>
           <!-- Equipamentos -->
           <div class="card">
             <div class="section-head">
@@ -1095,6 +1118,11 @@ select option{background:var(--bg2);color:var(--text)}
         <label>Instituição</label>
         <input type="text" id="au-inst" placeholder="ex: Unicamp, Lab 154...">
       </div>
+      <div class="field">
+        <label>WhatsApp (opcional)</label>
+        <input type="text" id="au-whats" maxlength="20" placeholder="ex: 11912345678" inputmode="numeric">
+        <p class="field-hint">Usado apenas para montar o aviso de solicitações. Só com DDD, sem espaços ou traços.</p>
+      </div>
       <div id="au-error" style="display:none"></div>
     </div>
     <div class="modal-foot">
@@ -1182,9 +1210,10 @@ async function listenBookings(){
   _unsubs.push(db.collection('bookings').onSnapshot(snap=>{
     bookings = snap.docs.map(d=>({id:d.id,...d.data()}));
     renderCalendar();
+    atualizaBadgePendencias();
     if(document.getElementById('panel-reservas').classList.contains('active'))renderReservas();
     if(document.getElementById('panel-equipamentos').classList.contains('active'))renderEquipamentos();
-    if(document.getElementById('panel-admin').classList.contains('active'))renderAdminBookings();
+    if(document.getElementById('panel-admin').classList.contains('active'))renderAdmin();
   }, err=>console.error('Bookings listener error:',err)));
 }
 async function listenUsers(){
@@ -1488,6 +1517,7 @@ function goToday(){
 
 function bksForDate(ds){
   return bookings.filter(b=>{
+    if(b.rejected) return false; // some do calendário
     // Noite de equilibração aparece no dia anterior
     const eq_=equilSlot(b);
     if(eq_&&eq_.date===ds) return true;
@@ -1545,8 +1575,9 @@ function calCell(dt,dim,today){
     const cat=e?e.cat:'outro';
     const eqShort=short(b.equipment);
     const label=b.comboColumn&&b.comboColumn!=='_cromatografia'?eqShort+'+':eqShort;
-    const evCls=b.bookingType==='manutencao'?'ev-manut':evClass(cat);
-    const evLabel=b.bookingType==='manutencao'?(ico('wrench','ico-xs')+' '+userShort):(userShort+': '+label);
+    const evCls=b.pending?'ev-pend':(b.bookingType==='manutencao'?'ev-manut':evClass(cat));
+    const evLabel=b.bookingType==='manutencao'?(ico('wrench','ico-xs')+' '+userShort)
+      :((b.pending?ico('clock','ico-xs')+' ':'')+userShort+': '+label);
     const tooltip=esc(b.user+' — '+eqName(b.equipment)+(b.protein?' ('+b.protein+')':''));
     chips+=`<div class="ev ${evCls}" title="${tooltip}">${evLabel}</div>`;
   });
@@ -1560,6 +1591,7 @@ function calCell(dt,dim,today){
 // BOOKING MODAL
 // ═══════════════════════════════════════════════════
 function openNew(date){
+  _pedidoAutorizado=false; excedeLimite=null; _justificativa='';
   editingId=null;
   selectedPeriod=null;
   document.getElementById('modal-title').textContent='Nova reserva';
@@ -1612,6 +1644,18 @@ function openNew(date){
 }
 
 function openEdit(id){
+  setTimeout(()=>{
+    const b=bookings.find(x=>x.id===id);
+    const el=document.getElementById('conflict-alert');
+    if(!b||!el) return;
+    if(b.pending){
+      el.innerHTML=`<div class="alert alert-warn">${ico('clock','ico-sm')}<span>Aguardando aprovação de um responsável${b.pendingInfo?.streak?` — ${b.pendingInfo.streak} dias seguidos, acima do limite de ${b.pendingInfo.limite}`:''}. O horário já está reservado.</span></div>`;
+      el.style.display='block';
+    } else if(b.rejected){
+      el.innerHTML=`<div class="alert alert-danger">${ico('x','ico-sm')}<span>Solicitação recusada por ${esc(b.rejectedBy||'um responsável')}${b.rejectedReason?`: ${esc(b.rejectedReason)}`:'.'} Esta reserva não está valendo.</span></div>`;
+      el.style.display='block';
+    }
+  },60);
   const b=bookings.find(x=>x.id===id);
   if(!b)return;
   // Only owner or admin can edit
@@ -1890,6 +1934,7 @@ function consecutiveRun(eqId, user, newDates, excId){
   const set=new Set(newDates);
   bookings.forEach(b=>{
     if(b.id===excId) return;
+    if(b.rejected) return;
     if(b.user!==user) return;
     if(b.bookingType==='manutencao') return;
     bookingDatesFor(b,eqId).forEach(d=>set.add(d));
@@ -1928,6 +1973,7 @@ function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,
 
   for(const b of bookings){
     if(b.id===excId)continue;
+    if(b.rejected)continue; // recusada não ocupa o equipamento
     const bAktaDates = getEffectiveDates(b.period,b.date,b.dateStart,b.dateEnd);
     const bEffColPeriod = b.comboColumn ? getEffectivePeriod(b.period,b.colPeriod) : null;
     const bColDates = b.comboColumn ? getEffectiveDates(
@@ -1996,6 +2042,46 @@ function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,
   return null;
 }
 
+// Pedido de dias extras: fica ativo só até a reserva ser salva
+let _pedidoAutorizado=false;
+let excedeLimite=null;
+
+function pedirAutorizacao(msg, info){
+  const el=document.getElementById('conflict-alert');
+  el.innerHTML=`
+    <div class="alert alert-warn" style="flex-direction:column;align-items:stretch;gap:9px">
+      <div style="display:flex;gap:7px;align-items:flex-start">${ico('warn','ico-sm')}<span>${msg}</span></div>
+      <div class="field" style="margin:0">
+        <label style="font-size:var(--fs-caption)">Justificativa para o administrador</label>
+        <textarea id="bk-justificativa" maxlength="300" rows="2"
+          placeholder="ex: purificação em lote para o ensaio de cristalização da semana"></textarea>
+      </div>
+      <button class="btn btn-primary btn-sm" style="align-self:flex-start" onclick="confirmarPedido()">
+        ${ico('clock','ico-sm')} Solicitar autorização
+      </button>
+      <span style="font-size:var(--fs-caption);color:var(--text3);line-height:1.45">
+        A reserva fica guardada e o horário reservado, mas só vale depois que um responsável aprovar.
+      </span>
+    </div>`;
+  el.style.display='block';
+  el.scrollIntoView({behavior:'smooth',block:'nearest'});
+  setTimeout(()=>document.getElementById('bk-justificativa')?.focus(),120);
+}
+
+function confirmarPedido(){
+  const j=(document.getElementById('bk-justificativa')?.value||'').trim();
+  if(j.length<5){
+    const t=document.getElementById('bk-justificativa');
+    if(t){ t.style.borderColor='var(--red)'; t.placeholder='Explique brevemente o motivo (mínimo 5 caracteres)'; t.focus(); }
+    return;
+  }
+  _justificativa=j;
+  _pedidoAutorizado=true;
+  document.getElementById('conflict-alert').style.display='none';
+  saveBooking();
+}
+let _justificativa='';
+
 async function saveBooking(){
   const date=document.getElementById('bk-date').value;
   const eq=document.getElementById('bk-eq').value;
@@ -2059,13 +2145,17 @@ async function saveBooking(){
       const lim=maxDaysOf(alvo.id);
       const run=consecutiveRun(alvo.id, user, alvo.datas, editingId);
       if(run.streak>lim){
-        const msg=`${eqNameEsc(alvo.id)}: esta reserva deixaria ${esc(user)} com ${run.streak} dias seguidos `+
+        const msg=`${eqNameEsc(alvo.id)}: esta reserva deixaria ${esc(user)} com <strong>${run.streak} dias seguidos</strong> `+
                   `(${fmtBR(run.inicio)} a ${fmtBR(run.fim)}), acima do limite de ${lim}.`;
-        if(!currentUser.isAdmin){
-          showConflict(msg+' Fale com um responsável se precisar de mais tempo.');
+        if(currentUser.isAdmin){
+          if(!confirm(`Atenção: ${eqName(alvo.id)} — esta reserva deixaria ${user} com ${run.streak} dias seguidos (limite: ${lim}).\n\nComo administrador você pode confirmar mesmo assim. Deseja continuar?`)) return;
+        } else if(!_pedidoAutorizado){
+          // Oferece solicitar autorização em vez de simplesmente barrar
+          pedirAutorizacao(msg, {eq:alvo.id, streak:run.streak, limite:lim, inicio:run.inicio, fim:run.fim});
           return;
+        } else {
+          excedeLimite={eq:alvo.id, streak:run.streak, limite:lim, inicio:run.inicio, fim:run.fim};
         }
-        if(!confirm(`Atenção: ${eqName(alvo.id)} — esta reserva deixaria ${user} com ${run.streak} dias seguidos (limite: ${lim}).\n\nComo administrador você pode confirmar mesmo assim. Deseja continuar?`)) return;
       }
     }
   }
@@ -2089,6 +2179,10 @@ Deseja continuar?`))return;
   }
   const data={
     date:mainDate,
+    // Pedido de dias extras aguardando um responsável
+    pending: _pedidoAutorizado||false,
+    pendingInfo: _pedidoAutorizado?{...excedeLimite, justificativa:_justificativa, pedidoEm:new Date().toISOString()}:null,
+    rejected: false,
     bookingType:bookingType,
     period:selectedPeriod,
     dateStart:selectedPeriod==='multidias'?dateStart:null,
@@ -2123,8 +2217,14 @@ Deseja continuar?`))return;
       }
     }
     const wasEdit=!!editingId;
+    const eraPedido=_pedidoAutorizado;
     closeModal();
-    toast(wasEdit?'Reserva atualizada':'Reserva confirmada');
+    toast(eraPedido?'Solicitação registrada':(wasEdit?'Reserva atualizada':'Reserva confirmada'), eraPedido?'clock':'check');
+    if(eraPedido){
+      const snapshot={user:data.user, equipment:data.equipment, date:data.date, period:data.period,
+                      dateStart:data.dateStart, dateEnd:data.dateEnd, pendingInfo:data.pendingInfo};
+      setTimeout(()=>avisarSolicitacao(snapshot), 500);
+    }
   }catch(err){
     showConflict('Erro ao salvar: '+errMsg(err));
   }finally{
@@ -2185,6 +2285,7 @@ function showConflict(msg){
 }
 
 function closeModal(){
+  _pedidoAutorizado=false; excedeLimite=null; _justificativa='';
   hide('booking-modal');
   editingId=null; selectedPeriod=null; selectedColPeriod=null; bookingType='experimento';
   // Reset date field to readonly display mode
@@ -2252,13 +2353,17 @@ function renderReservas(){
       else colTime=` · Coluna: ${pl[b.colPeriod]||b.colPeriod}`;
     }
     const isManut=b.bookingType==='manutencao';
-    return `<div class="reserva-item" onclick="openEdit('${b.id}')" style="${isManut?'border-left:3px solid var(--amber)':''}">
+    const estadoCls=b.rejected?' is-rejected':(b.pending?' is-pending':'');
+    return `<div class="reserva-item${estadoCls}" onclick="openEdit('${b.id}')" style="${isManut&&!estadoCls?'border-left:3px solid var(--amber)':''}">
       <div class="ri-top">
+        ${b.pending?`<span class="badge badge-pend">${ico('clock','ico-xs')} Aguardando aprovação</span>`:''}
+        ${b.rejected?`<span class="badge badge-rej">${ico('x','ico-xs')} Recusada</span>`:''}
         ${isManut?`<span class="badge badge-manut">${ico('wrench','ico-xs')} Manutenção</span>`:''}
         <span class="badge ${eqBadge(cat)||'badge-other'}">${eqNameEsc(b.equipment)}</span>
         ${colInfo}
         <span class="ri-date">${fmtBR(b.date)}</span>
       </div>
+      ${b.rejected&&b.rejectedReason?`<div style="font-size:var(--fs-caption);color:var(--red);margin-bottom:3px">Motivo: ${esc(b.rejectedReason)}</div>`:''}
       ${b.protein?`<div style="margin-bottom:3px"><span class="protocol-badge">${ico('flask','ico-xs')} ${esc(b.protein)}</span></div>`:''}
       ${b.shakerErlens||b.shakerTemp1?`<div style="margin-bottom:3px">${b.shakerErlens?`<span class="badge-shaker">${ico('layers','ico-xs')} ${b.shakerErlens} erlens</span> `:''}${b.shakerVolume?`<span class="badge-shaker">${esc(b.shakerVolume)}L</span> `:''}${b.shakerTemp1?`<span class="badge-shaker">${b.shakerTemp1}°C</span> `:''}${b.shakerOvernight&&b.shakerTemp2?`<span class="badge-shaker">→ ${b.shakerTemp2}°C ON</span>`:''}${b.shakerEndTime?`<span class="badge-shaker">até ${b.shakerEndDate?fmtBR(b.shakerEndDate)+' ':''} ${b.shakerEndTime}</span>`:''}</div>`:''}
       <div class="ri-info">${svgUser()} ${esc(b.user)}${b.user2?` + ${esc(b.user2)}`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${time}${colTime}${b.notes?` · <em>${esc(b.notes)}</em>`:''}</div>
@@ -2554,7 +2659,178 @@ async function moveEq(id,dir){
 // ═══════════════════════════════════════════════════
 // ADMIN
 // ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// AVISOS: monta a mensagem e abre WhatsApp ou e-mail.
+// Sem servidor, sem Cloud Functions e sem custo — quem envia é a pessoa.
+// ═══════════════════════════════════════════════════
+const SITE_URL='https://danilopavao-lgtm.github.io/lbea';
+
+function admins(){ return users.filter(u=>u.isAdmin); }
+function soDigitos(t){ return String(t||'').replace(/\D/g,''); }
+
+function linkWhats(numero,texto){
+  let n=soDigitos(numero);
+  if(!n) return null;
+  if(n.length<=11) n='55'+n; // completa com o código do Brasil
+  return `https://wa.me/${n}?text=${encodeURIComponent(texto)}`;
+}
+function linkEmail(destinos,assunto,texto){
+  const para=(Array.isArray(destinos)?destinos:[destinos]).filter(Boolean).join(',');
+  if(!para) return null;
+  return `mailto:${para}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(texto)}`;
+}
+
+function periodoTexto(b){
+  const P={manha:'manhã',tarde:'tarde',noite:'noite',diatodo:'dia todo',custom:'horário específico',multidias:'vários dias'};
+  if(b.period==='multidias'&&b.dateStart&&b.dateEnd) return `${fmtBR(b.dateStart)} a ${fmtBR(b.dateEnd)}`;
+  return `${fmtBR(b.date)} (${P[b.period]||b.period})`;
+}
+
+// Caixa de aviso reaproveitável
+function mostrarAviso({titulo, descricao, texto, assunto, contatos}){
+  const w=(contatos||[]).map(p=>({nome:p.name, url:linkWhats(p.whatsapp,texto)})).filter(x=>x.url);
+  const emails=(contatos||[]).map(p=>p.email).filter(Boolean);
+  const mail=linkEmail(emails,assunto,texto);
+  const el=document.getElementById('aviso-box');
+  el.innerHTML=`
+    <div class="modal" style="max-width:400px" role="dialog" aria-modal="true">
+      <div class="grabber" data-close="fecharAviso"></div>
+      <div class="modal-head"><h3>${titulo}</h3>
+        <button class="btn btn-icon" aria-label="Fechar" onclick="fecharAviso()"><svg class="ico"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:var(--fs-footnote);color:var(--text2);line-height:1.5">${descricao}</p>
+        <div class="aviso-preview">${esc(texto)}</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${w.map(x=>`<a class="btn" style="justify-content:flex-start" href="${x.url}" target="_blank" rel="noopener" onclick="fecharAviso()">${ico('user','ico-sm')} WhatsApp de ${esc(x.nome)}</a>`).join('')}
+          ${mail?`<a class="btn" style="justify-content:flex-start" href="${mail}" onclick="fecharAviso()">${ico('info','ico-sm')} Enviar por e-mail</a>`:''}
+          <button class="btn" style="justify-content:flex-start" onclick="copiarAviso(this)">${ico('list','ico-sm')} Copiar mensagem</button>
+        </div>
+        ${!w.length?`<p class="field-hint">Nenhum responsável tem WhatsApp cadastrado. Um administrador pode preencher em Admin › Usuários › Editar.</p>`:''}
+      </div>
+      <div class="modal-foot"><div class="spacer"></div><button class="btn" onclick="fecharAviso()">Depois eu aviso</button></div>
+    </div>`;
+  el.dataset.texto=texto;
+  el.style.display='flex';
+}
+function fecharAviso(){ const el=document.getElementById('aviso-box'); el.style.display='none'; el.innerHTML=''; }
+function copiarAviso(btn){
+  const t=document.getElementById('aviso-box').dataset.texto||'';
+  navigator.clipboard?.writeText(t).then(()=>{ btn.innerHTML=ico('check','ico-sm')+' Copiado'; }, ()=>{});
+}
+
+// Aviso ao solicitar dias extras
+function avisarSolicitacao(b){
+  const i=b.pendingInfo||{};
+  const texto=`Olá! Solicitei autorização no sistema de reservas do LBEA.\n\n`+
+    `Equipamento: ${eqName(i.eq||b.equipment)}\n`+
+    `Período: ${periodoTexto(b)}\n`+
+    `Ficaria com ${i.streak} dias seguidos (limite: ${i.limite})\n`+
+    `Motivo: ${i.justificativa||'-'}\n\n`+
+    `Solicitante: ${b.user}\n`+
+    `Para aprovar: ${SITE_URL}`;
+  mostrarAviso({
+    titulo:'Avisar um responsável',
+    descricao:'A solicitação já está registrada no sistema. Se quiser agilizar, mande o aviso abaixo para quem aprova.',
+    texto, assunto:'Solicitação de dias extras — Reservas LBEA', contatos:admins()
+  });
+}
+
+// Aviso ao aprovar ou recusar
+function avisarDecisao(b, aprovado, motivo){
+  const dono=users.find(u=>u.name===b.user);
+  const texto=aprovado
+    ? `Sua solicitação no sistema de reservas do LBEA foi APROVADA.\n\n`+
+      `Equipamento: ${eqName(b.pendingInfo?.eq||b.equipment)}\n`+
+      `Período: ${periodoTexto(b)}\n\n`+
+      `A reserva já está valendo: ${SITE_URL}`
+    : `Sua solicitação no sistema de reservas do LBEA foi RECUSADA.\n\n`+
+      `Equipamento: ${eqName(b.pendingInfo?.eq||b.equipment)}\n`+
+      `Período: ${periodoTexto(b)}\n`+
+      `Motivo: ${motivo||'não informado'}\n\n`+
+      `A reserva não está valendo. Veja em: ${SITE_URL}`;
+  mostrarAviso({
+    titulo: aprovado?'Avisar quem solicitou':'Avisar quem solicitou',
+    descricao:`A decisão já está registrada. Avise ${esc(b.user)} para que ela não fique esperando.`,
+    texto, assunto:`Solicitação ${aprovado?'aprovada':'recusada'} — Reservas LBEA`,
+    contatos: dono?[dono]:[]
+  });
+}
+
+function pendentes(){ return bookings.filter(b=>b.pending&&!b.rejected); }
+
+const TITULO_BASE='LBEA Reservas';
+function atualizaBadgePendencias(){
+  const n=pendentes().length;
+  const souAdmin=!!currentUser?.isAdmin;
+  const el=document.getElementById('pend-badge');
+  if(el){
+    el.style.display=(n&&souAdmin)?'inline':'none';
+    el.textContent=n;
+  }
+  // Título da aba: quem deixa o sistema aberto percebe sem entrar no painel
+  document.title=(souAdmin&&n)?`(${n}) ${TITULO_BASE}`:TITULO_BASE;
+}
+
+function renderAdminSolicitacoes(){
+  const el=document.getElementById('admin-solic-list');
+  if(!el) return;
+  const lista=pendentes().sort((a,b)=>(a.pendingInfo?.pedidoEm||'').localeCompare(b.pendingInfo?.pedidoEm||''));
+  const cnt=document.getElementById('solic-count');
+  if(cnt) cnt.textContent=lista.length?`${lista.length} aguardando`:'';
+  if(!lista.length){
+    el.innerHTML=`<div class="empty-state"><svg class="bf bf-xs"><use href="#m-buffer-sleep"/></svg>Nenhuma solicitação pendente.</div>`;
+    return;
+  }
+  el.innerHTML=lista.map(b=>{
+    const i=b.pendingInfo||{};
+    return `<div class="solic-item">
+      <div class="solic-head">
+        <strong>${esc(b.user)}</strong>
+        <span class="badge badge-manut">${ico('clock','ico-xs')} ${i.streak||'?'} dias seguidos</span>
+        <span style="font-size:var(--fs-caption);color:var(--text3);margin-left:auto">${fmtBR(b.date)}</span>
+      </div>
+      <div class="solic-meta">
+        ${eqNameEsc(i.eq||b.equipment)} · limite de ${i.limite||'?'} dias${i.inicio?` · sequência de ${fmtBR(i.inicio)} a ${fmtBR(i.fim)}`:''}
+      </div>
+      ${i.justificativa?`<div class="solic-just">${ico('info','ico-xs')} <span>${esc(i.justificativa)}</span></div>`:''}
+      <div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-primary" onclick="aprovarPedido('${b.id}')">${ico('check','ico-xs')} Aprovar</button>
+        <button class="btn btn-sm btn-danger" onclick="recusarPedido('${b.id}')">${ico('x','ico-xs')} Recusar</button>
+        <button class="btn btn-sm" onclick="openEdit('${b.id}')">Ver reserva</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function aprovarPedido(id){
+  const b=bookings.find(x=>x.id===id); if(!b) return;
+  try{
+    await withTimeout(db.collection('bookings').doc(id).update({
+      pending:false, rejected:false,
+      approvedBy:currentUser.name, approvedAt:new Date().toISOString()
+    }), 10000, 'aprovar a solicitação');
+    toast(`Solicitação de ${b.user} aprovada`);
+    setTimeout(()=>avisarDecisao(b, true), 400);
+  }catch(err){ alert('Erro ao aprovar: '+errMsg(err)); }
+}
+
+async function recusarPedido(id){
+  const b=bookings.find(x=>x.id===id); if(!b) return;
+  const motivo=prompt(`Recusar a solicitação de ${b.user}.\n\nMotivo (aparecerá para o solicitante):`,'');
+  if(motivo===null) return;
+  try{
+    await withTimeout(db.collection('bookings').doc(id).update({
+      pending:false, rejected:true,
+      rejectedBy:currentUser.name, rejectedReason:motivo.trim()||null, rejectedAt:new Date().toISOString()
+    }), 10000, 'recusar a solicitação');
+    toast('Solicitação recusada','x');
+    setTimeout(()=>avisarDecisao(b, false, motivo.trim()), 400);
+  }catch(err){ alert('Erro ao recusar: '+errMsg(err)); }
+}
+
 function renderAdmin(){
+  renderAdminSolicitacoes();
   renderAdminEquipment();
   renderAdminUsers();
   renderAdminBookings();
@@ -2630,6 +2906,7 @@ function editUserInstitution(uid){
   document.getElementById('au-name-display').textContent=u.name+(u.email?' · '+u.email:'');
   document.getElementById('au-type').value=u.isExternal?'externo':'interno';
   document.getElementById('au-inst').value=u.institution||'';
+  document.getElementById('au-whats').value=u.whatsapp||'';
   document.getElementById('au-inst-field').style.display=u.isExternal?'block':'none';
   document.getElementById('au-error').style.display='none';
   show('add-user-modal');
@@ -2640,7 +2917,8 @@ async function saveUserEdits(){
   const uType=document.getElementById('au-type').value;
   const uInst=document.getElementById('au-inst').value.trim();
   try{
-    await db.collection('users').doc(uid).update({isExternal:uType==='externo', institution:uInst||null});
+    const uWhats=(document.getElementById('au-whats').value||'').replace(/\D/g,'');
+    await db.collection('users').doc(uid).update({isExternal:uType==='externo', institution:uInst||null, whatsapp:uWhats||null});
     document.getElementById('add-user-modal').style.display='none';
   }catch(err){
     showEl('au-error', `<div class="alert alert-danger">Erro ao salvar: ${err.message}</div>`);
@@ -2968,6 +3246,7 @@ document.addEventListener('keydown',e=>{
     if(document.getElementById('day-popup').style.display!=='none') closeDayPopup();
     if(document.getElementById('eq-detail').style.display!=='none') closeEqDetail();
     if(document.getElementById('add-user-modal').style.display!=='none') hide('add-user-modal');
+    if(document.getElementById('aviso-box').style.display!=='none') fecharAviso();
     if(document.getElementById('eq-edit-modal').style.display!=='none') hide('eq-edit-modal');
   }
 });
