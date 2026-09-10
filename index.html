@@ -2,7 +2,15 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Sistema de reservas de equipamentos do LBEA — ÄKTA, colunas de cromatografia, shakers e demais equipamentos do laboratório.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#232320" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="LBEA Reservas">
+<meta name="format-detection" content="telephone=no">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23378ADD'/><g fill='none' stroke='white' stroke-width='1.6' stroke-linejoin='round'><path d='M16 6.5 22 11.5 23.2 19.5 19.2 24h-6.4L8.8 19.5 10 11.5Z'/><path d='M16 6.5 12.8 24M16 6.5 19.2 24M10 11.5h12M8.8 19.5h14.4'/></g></svg>">
 <title>LBEA Reservas</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23378ADD'/><text y='72' x='50' text-anchor='middle' font-family='system-ui' font-weight='800' font-size='52' fill='white'>LB</text></svg>">
 
@@ -65,6 +73,19 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 .icon-sprite{position:absolute;width:0;height:0;overflow:hidden}
+/* Buffer — mascote do laboratório.
+   A pintura vem de variáveis CSS: são o único mecanismo que atravessa
+   o shadow tree criado por <use>. Seletores comuns não alcançam lá dentro. */
+.bf{width:120px;height:150px;display:block;
+    --bf-fill:var(--blue-light); --bf-line:var(--blue); --bf-face:var(--text)}
+.bf-float{animation:bfFloat 4.5s ease-in-out infinite}
+@keyframes bfFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.bf-sm{width:64px;height:80px}
+.bf-xs{width:44px;height:55px}
+.bf-tagline{font-family:Georgia,'Times New Roman',serif;font-style:italic;color:var(--text2);font-size:var(--fs-footnote)}
+.brand-mark{width:32px;height:32px;border-radius:9px;background:var(--blue);display:flex;align-items:center;justify-content:center;flex:none;color:#fff}
+.brand-mark svg{width:19px;height:19px}
+
 .ico{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px}
 .ico-xs{width:11px;height:11px;stroke-width:2.2;vertical-align:-1px}
 .ico-sm{width:12px;height:12px;vertical-align:-1px}
@@ -83,6 +104,7 @@
 .eq-row-actions{display:flex;gap:4px;flex:none}
 .eq-order-btn{width:26px;height:26px;padding:0;justify-content:center;border-radius:var(--radius-sm)}
 .empty-state{text-align:center;padding:var(--sp8) var(--sp4);color:var(--text2);font-size:var(--fs-footnote);line-height:1.5}
+.empty-state .bf{margin:0 auto var(--sp2);opacity:.8}
 
 /* Cabeçalho de seção do formulário — agrupa campos relacionados */
 .form-section{font-size:var(--fs-caption);font-weight:600;text-transform:uppercase;letter-spacing:.06em;
@@ -92,6 +114,8 @@
 
 /* Lista agrupada: separadores finos dentro de um bloco arredondado */
 /* Confirmação breve das ações */
+#offline-bar{position:fixed;top:0;left:0;right:0;z-index:500;background:var(--amber);color:#fff;
+  font-size:var(--fs-caption);font-weight:500;text-align:center;padding:7px 12px;padding-top:max(7px,env(safe-area-inset-top))}
 .toast-wrap{position:fixed;left:0;right:0;bottom:max(var(--sp5),env(safe-area-inset-bottom));display:flex;justify-content:center;
   z-index:400;pointer-events:none;padding:0 var(--sp4)}
 .toast{display:flex;align-items:center;gap:var(--sp2);background:var(--text);color:var(--bg);padding:11px 16px;border-radius:22px;
@@ -452,6 +476,36 @@ select option{background:var(--bg2);color:var(--text)}
 </head>
 <body>
 <svg class="icon-sprite" aria-hidden="true" focusable="false"><defs>
+
+<symbol id="m-buffer" viewBox="0 0 120 150">
+  <path d="M60 6 L92 40 L98 84 L78 120 L42 120 L22 84 L28 40 Z" fill="var(--bf-fill,#E6F1FB)" fill-opacity=".92"/>
+  <path d="M60 6 L42 120 M60 6 L78 120 M28 40 L92 40 M22 84 L98 84 M60 6 L22 84 M60 6 L98 84"
+        fill="none" stroke="var(--bf-line,#378ADD)" stroke-width="1" stroke-opacity=".38" stroke-linejoin="round"/>
+  <path d="M60 6 L92 40 L98 84 L78 120 L42 120 L22 84 L28 40 Z"
+        fill="none" stroke="var(--bf-line,#378ADD)" stroke-width="2.4" stroke-linejoin="round"/>
+  <g fill="none" stroke="var(--bf-face,#1a1a18)" stroke-width="2.6" stroke-linecap="round">
+    <path d="M45 74 q5 7 10 0"/><path d="M65 74 q5 7 10 0"/><path d="M53 88 q7 8 14 0"/>
+  </g>
+</symbol>
+<symbol id="m-buffer-sleep" viewBox="0 0 120 150">
+  <path d="M60 6 L92 40 L98 84 L78 120 L42 120 L22 84 L28 40 Z" fill="var(--bf-fill,#E6F1FB)" fill-opacity=".92"/>
+  <path d="M60 6 L42 120 M60 6 L78 120 M28 40 L92 40 M22 84 L98 84"
+        fill="none" stroke="var(--bf-line,#378ADD)" stroke-width="1" stroke-opacity=".38" stroke-linejoin="round"/>
+  <path d="M60 6 L92 40 L98 84 L78 120 L42 120 L22 84 L28 40 Z"
+        fill="none" stroke="var(--bf-line,#378ADD)" stroke-width="2.4" stroke-linejoin="round"/>
+  <g fill="none" stroke="var(--bf-face,#1a1a18)" stroke-width="2.6" stroke-linecap="round">
+    <path d="M44 76 q6 5 12 0"/><path d="M64 76 q6 5 12 0"/><path d="M55 90 q5 4 10 0"/>
+  </g>
+  <g fill="none" stroke="var(--bf-line,#378ADD)" stroke-opacity=".6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M86 30 h10 l-10 12 h10"/><path d="M100 14 h7 l-7 9 h7"/>
+  </g>
+</symbol>
+<symbol id="m-crystal" viewBox="0 0 24 24">
+  <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">
+    <path d="M12 2.5 18.5 8 20 17 15.5 22h-7L4 17 5.5 8Z"/>
+    <path d="M12 2.5 8.5 22M12 2.5 15.5 22M5.5 8h13M4 17h16"/>
+  </g>
+</symbol>
 <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></symbol>
 <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
 <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></symbol>
@@ -479,9 +533,10 @@ select option{background:var(--bg2);color:var(--text)}
 <!-- ═══════════════════════════════════════ LOGIN SCREEN -->
 <div id="loading-screen" style="display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:16px;font-family:system-ui;background:#f7f7f5">
   <div style="display:flex;align-items:center;gap:10px">
-    <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:34px;height:34px"><rect width="36" height="36" rx="9" fill="#378ADD"/><text y="26" x="18" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="800" font-size="15" fill="white">LB</text></svg>
+    <span class="brand-mark" style="width:34px;height:34px"><svg viewBox="0 0 24 24"><use href="#m-crystal"/></svg></span>
     <span style="font-size:18px;font-weight:700">LBEA Reservas</span>
   </div>
+  <svg class="bf bf-sm bf-float" style="margin:4px 0"><use href="#m-buffer"/></svg>
   <div style="display:flex;align-items:center;gap:8px;color:#888;font-size:13px">
     <div style="width:16px;height:16px;border:2px solid rgba(128,128,128,.25);border-top-color:#378ADD;border-radius:50%;animation:spin .7s linear infinite"></div>
     Verificando login...
@@ -489,10 +544,14 @@ select option{background:var(--bg2);color:var(--text)}
 </div>
 <div id="login-screen" style="display:none">
   <div class="login-screen">
-    <div class="logo"><svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:30px;height:30px"><rect width="36" height="36" rx="9" fill="#378ADD"/><text y="26" x="18" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="800" font-size="15" fill="white">LB</text></svg> LBEA Reservas</div>
+    <div class="logo"><span class="brand-mark" style="width:30px;height:30px"><svg viewBox="0 0 24 24"><use href="#m-crystal"/></svg></span> LBEA Reservas</div>
 
     <!-- LOGIN MODE -->
     <div id="auth-login-mode">
+      <div style="text-align:center;margin:6px 0 14px">
+        <svg class="bf bf-float" style="margin:0 auto"><use href="#m-buffer"/></svg>
+        <p class="bf-tagline" style="margin-top:8px">"Da matéria à descoberta."</p>
+      </div>
       <h2>Entrar</h2>
       <p>Acesse com sua conta Google para reservar equipamentos.</p>
       <div id="auth-error" style="display:none;margin-bottom:10px"></div>
@@ -515,12 +574,12 @@ select option{background:var(--bg2);color:var(--text)}
 <!-- NAME PICKER — shown on first login -->
 <div id="name-picker-screen" style="display:none">
   <div class="login-screen">
-    <div class="logo"><svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:30px;height:30px"><rect width="36" height="36" rx="9" fill="#378ADD"/><text y="26" x="18" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="800" font-size="15" fill="white">LB</text></svg> LBEA Reservas</div>
+    <div class="logo"><span class="brand-mark" style="width:30px;height:30px"><svg viewBox="0 0 24 24"><use href="#m-crystal"/></svg></span> LBEA Reservas</div>
     <h2>Como quer ser identificado?</h2>
     <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Este nome aparecerá nas reservas e para os outros usuários.</p>
     <div class="field">
       <label>Seu nome no laboratório</label>
-      <input type="text" id="picker-name" placeholder="ex: Camilla, Luís Victor, Tom..." autocomplete="off"
+      <input type="text" id="picker-name" maxlength="40" placeholder="ex: Camilla, Luís Victor, Tom..." autocomplete="off"
         onkeydown="if(event.key==='Enter')confirmName()">
     </div>
     <div id="picker-error" style="display:none;margin-bottom:8px"></div>
@@ -531,6 +590,7 @@ select option{background:var(--bg2);color:var(--text)}
   </div>
 </div>
 
+<div id="offline-bar" role="status" style="display:none">Sem conexão — as alterações não serão salvas até a rede voltar</div>
 <div class="toast-wrap" id="toast-wrap" aria-live="polite" aria-atomic="true"></div>
 
 <!-- ═══════════════════════════════════════ MAIN APP -->
@@ -538,7 +598,7 @@ select option{background:var(--bg2);color:var(--text)}
   <div class="app-shell">
     <div class="topbar">
       <div class="topbar-logo">
-        <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:30px;height:30px;flex-shrink:0"><rect width="36" height="36" rx="9" fill="#378ADD"/><text y="26" x="18" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="800" font-size="15" fill="white">LB</text></svg>
+        <span class="brand-mark" style="width:30px;height:30px"><svg viewBox="0 0 24 24"><use href="#m-crystal"/></svg></span>
         <span>LBEA <span style="font-weight:400;color:var(--text2)">Reservas</span></span>
       </div>
       <div class="topbar-spacer"></div>
@@ -845,17 +905,17 @@ select option{background:var(--bg2);color:var(--text)}
         </p>
         <div class="field" style="margin-bottom:8px">
           <label>Nome</label>
-          <input type="text" id="bk-user2" placeholder="Nome do segundo usuário...">
+          <input type="text" id="bk-user2" maxlength="80" placeholder="Nome do segundo usuário...">
         </div>
         <div class="field">
           <label>Instituição / Laboratório (se externo)</label>
-          <input type="text" id="bk-inst" placeholder="ex: Unicamp, Lab 154, Lab 250...">
+          <input type="text" id="bk-inst" maxlength="100" placeholder="ex: Unicamp, Lab 154, Lab 250...">
         </div>
       </div>
       <div class="form-section">Detalhes</div>
       <div class="field">
         <label>Proteína / Amostra / Organismo</label>
-        <input type="text" id="bk-protein" placeholder="ex: MadB, NigBII/I, BL21(DE3)...">
+        <input type="text" id="bk-protein" maxlength="120" placeholder="ex: MadB, NigBII/I, BL21(DE3)...">
       </div>
       <div id="shaker-section" style="display:none">
         <div class="shaker-box">
@@ -939,7 +999,7 @@ select option{background:var(--bg2);color:var(--text)}
       </div>
       <div class="field">
         <label>Observações (opcional)</label>
-        <textarea id="bk-notes" placeholder="ex: purificação His-tag, troca de tampão, limpeza coluna..."></textarea>
+        <textarea id="bk-notes" maxlength="500" placeholder="ex: purificação His-tag, troca de tampão, limpeza coluna..."></textarea>
       </div>
       <div id="conflict-alert" style="display:none"></div>
     </div>
@@ -967,7 +1027,7 @@ select option{background:var(--bg2);color:var(--text)}
       <input type="hidden" id="eqm-id">
       <div class="field">
         <label>Nome do equipamento</label>
-        <input type="text" id="eqm-name" placeholder="ex: ÄKTA Pure 25, Superdex 200 pg XK16/600 (2)" autocomplete="off">
+        <input type="text" id="eqm-name" maxlength="60" placeholder="ex: ÄKTA Pure 25, Superdex 200 pg XK16/600 (2)" autocomplete="off">
       </div>
       <div class="field">
         <label>Categoria</label>
@@ -976,6 +1036,11 @@ select option{background:var(--bg2);color:var(--text)}
           <option value="coluna">Coluna — tem contador de usos e limite de limpeza</option>
           <option value="outro">Outro equipamento</option>
         </select>
+      </div>
+      <div class="field">
+        <label>Máximo de dias seguidos por usuário</label>
+        <input type="number" id="eqm-maxdays" min="1" max="60" value="3">
+        <p class="field-hint">Impede que a mesma pessoa ocupe o equipamento por muitos dias consecutivos. Use um número alto (ex: 60) para não aplicar limite.</p>
       </div>
       <div class="field" id="eqm-limit-field" style="display:none">
         <label>Limite de usos antes da limpeza</label>
@@ -1058,7 +1123,7 @@ const DEFAULT_EQ = [
   {id:'sdx200i',      name:'Superdex 200 Increase 10/300 GL', cat:'coluna', colLimit:20},
   {id:'sdx200-1',     name:'Superdex 200 pg XK16/600 (1)',    cat:'coluna', colLimit:10},
   {id:'ss6',          name:'Superose 6 XK16/600',             cat:'coluna', colLimit:10},
-  {id:'peaq-itc',     name:'PEAQ-ITC',                        cat:'outro'},
+  {id:'peaq-itc',     name:'PEAQ-ITC',                        cat:'outro', maxDays:5},
   {id:'shaker-1',     name:'Shaker Thermo',                   cat:'outro', isShaker:true},
   {id:'shaker-2',     name:'Shaker Eppendorf',                cat:'outro', isShaker:true},
   {id:'termociclador',name:'Termociclador BioRad',            cat:'outro'},
@@ -1068,12 +1133,16 @@ let EQ = DEFAULT_EQ.map((e,i)=>({...e, order:i, active:true}));
 let eqFromDb = false; // true quando a lista veio da coleção "equipment"
 
 const eqById = id => EQ.find(e=>e.id===id);
+// Dias seguidos permitidos por usuário. Padrão: 3 (ITC e afins podem ter outro).
+const DEFAULT_MAX_DAYS = 3;
+const maxDaysOf = id => eqById(id)?.maxDays || DEFAULT_MAX_DAYS;
 // Ativos: usados em novas reservas e nos painéis. Inativos continuam existindo
 // em EQ para que reservas antigas mantenham o nome correto.
 const eqActive = () => EQ.filter(e=>e.active!==false);
 const isShakerEq = id => { const e=eqById(id); return !!(e&&e.isShaker); };
 const colLimitOf = id => (colCounters[id]&&colCounters[id].limit) || eqById(id)?.colLimit || 10;
 const eqName = id => { const e=eqById(id); return e?e.name:id; };
+const eqNameEsc = id => esc(eqName(id));
 const eqBadge = cat => cat==='akta'?'badge-akta':cat==='coluna'?'badge-col':cat==='outro'&&'badge-other';
 const evClass = cat => cat==='akta'?'ev-akta':cat==='coluna'?'ev-col':'ev-other';
 
@@ -1102,28 +1171,28 @@ let colCounters = {}; // {colId: {uses, limit, lastReset, lastResetBy}}
 // FIRESTORE HELPERS
 // ═══════════════════════════════════════════════════
 async function loadUsers(){
-  const snap = await db.collection('users').orderBy('name').get();
+  const snap = await withTimeout(db.collection('users').orderBy('name').get(), 15000, 'carregar os usuários');
   users = snap.docs.map(d=>({id:d.id,...d.data()}));
 }
 async function loadBookings(){
-  const snap = await db.collection('bookings').orderBy('date','desc').get();
+  const snap = await withTimeout(db.collection('bookings').orderBy('date','desc').get(), 15000, 'carregar as reservas');
   bookings = snap.docs.map(d=>({id:d.id,...d.data()}));
 }
 async function listenBookings(){
-  db.collection('bookings').onSnapshot(snap=>{
+  _unsubs.push(db.collection('bookings').onSnapshot(snap=>{
     bookings = snap.docs.map(d=>({id:d.id,...d.data()}));
     renderCalendar();
     if(document.getElementById('panel-reservas').classList.contains('active'))renderReservas();
     if(document.getElementById('panel-equipamentos').classList.contains('active'))renderEquipamentos();
     if(document.getElementById('panel-admin').classList.contains('active'))renderAdminBookings();
-  }, err=>console.error('Bookings listener error:',err));
+  }, err=>console.error('Bookings listener error:',err)));
 }
 async function listenUsers(){
-  db.collection('users').onSnapshot(snap=>{
+  _unsubs.push(db.collection('users').onSnapshot(snap=>{
     users = snap.docs.map(d=>({id:d.id,...d.data()}));
     if(document.getElementById('panel-admin').classList.contains('active'))renderAdmin();
     syncUserSelects();
-  }, err=>console.error('Users listener error:',err));
+  }, err=>console.error('Users listener error:',err)));
 }
 
 // ═══════════════════════════════════════════════════
@@ -1306,6 +1375,7 @@ async function sendResetEmail(){
 }
 
 let _listenersOn=false; // evita registrar os listeners mais de uma vez
+let _unsubs=[];            // funções para desligar os listeners ao sair
 function startApp(){
   hide('login-screen');
   show('app');
@@ -1323,7 +1393,7 @@ function startApp(){
 }
 
 function listenEquipment(){
-  db.collection('equipment').onSnapshot(snap=>{
+  _unsubs.push(db.collection('equipment').onSnapshot(snap=>{
     if(snap.empty){
       EQ = DEFAULT_EQ.map((e,i)=>({...e, order:i, active:true}));
       eqFromDb = false;
@@ -1333,7 +1403,7 @@ function listenEquipment(){
       eqFromDb = true;
     }
     refreshAfterEqChange();
-  }, err=>console.error('equipment listener:',err));
+  }, err=>console.error('equipment listener:',err)));
 }
 
 // Re-renderiza tudo que depende da lista de equipamentos
@@ -1354,21 +1424,24 @@ function refreshEqSelects(){
   const s=document.getElementById('bk-eq');
   if(!s) return;
   const cur=s.value;
-  s.innerHTML=eqActive().map(e=>`<option value="${e.id}"${e.id===cur?' selected':''}>${e.name}</option>`).join('');
+  s.innerHTML=eqActive().map(e=>`<option value="${e.id}"${e.id===cur?' selected':''}>${esc(e.name)}</option>`).join('');
 }
 
 async function listenColCounters(){
-  db.collection('colCounters').onSnapshot(snap=>{
+  _unsubs.push(db.collection('colCounters').onSnapshot(snap=>{
     colCounters={};
     snap.docs.forEach(d=>{ colCounters[d.id]={...d.data()}; });
     // Refresh equipment tab if open
     if(document.getElementById('panel-equipamentos').classList.contains('active')) renderEquipamentos();
-  }, err=>console.error('colCounters error:',err));
+  }, err=>console.error('colCounters error:',err)));
 }
 
 function logout(){
   if(!confirm(`Sair da conta de ${currentUser?.name||'usuário'}?`))return;
   _listenersOn=false;
+  _unsubs.forEach(u=>{ try{ u(); }catch(_){} });
+  _unsubs=[];
+  bookings=[]; users=[]; colCounters={};
   window._pendingProfile=null;
   hide('name-picker-screen');
   auth.signOut();
@@ -1461,11 +1534,11 @@ function calCell(dt,dim,today){
   let chips='';
   const short=id=>eqName(id).replace('ÄKTA ','').replace('Superdex ','Sdx ').replace('Superose ','Srose ').replace('Shaker ','').replace('Termociclador ','TC ').replace('PEAQ-ITC','ITC');
   bks.slice(0,2).forEach(b=>{
-    const userShort=b.user.split(' ')[0];
+    const userShort=esc(b.user.split(' ')[0]);
     const eSlot=equilSlot(b);
     // Neste dia a reserva aparece só por causa da equilibração da véspera
     if(eSlot&&eSlot.date===ds&&b.date!==ds){
-      chips+=`<div class="ev ev-col" title="${b.user} — ${eqName(eSlot.col)} em equilibração para ${fmtBR(b.date)}">${ico('moon','ico-xs')} ${short(eSlot.col)}</div>`;
+      chips+=`<div class="ev ev-col" title="${esc(b.user)} — ${eqNameEsc(eSlot.col)} em equilibração para ${fmtBR(b.date)}">${ico('moon','ico-xs')} ${short(eSlot.col)}</div>`;
       return;
     }
     const e=eqById(b.equipment);
@@ -1474,7 +1547,7 @@ function calCell(dt,dim,today){
     const label=b.comboColumn&&b.comboColumn!=='_cromatografia'?eqShort+'+':eqShort;
     const evCls=b.bookingType==='manutencao'?'ev-manut':evClass(cat);
     const evLabel=b.bookingType==='manutencao'?(ico('wrench','ico-xs')+' '+userShort):(userShort+': '+label);
-    const tooltip=b.user+' — '+eqName(b.equipment)+(b.protein?' ('+b.protein+')':'');
+    const tooltip=esc(b.user+' — '+eqName(b.equipment)+(b.protein?' ('+b.protein+')':''));
     chips+=`<div class="ev ${evCls}" title="${tooltip}">${evLabel}</div>`;
   });
   if(bks.length>2) chips+=`<div class="ev-more">+${bks.length-2}</div>`;
@@ -1534,7 +1607,7 @@ function openNew(date){
   show('booking-modal');
   // Populate and trigger eq change AFTER modal is visible
   const s=document.getElementById('bk-eq');
-  s.innerHTML=eqActive().map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+  s.innerHTML=eqActive().map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');
   onEqChange();
 }
 
@@ -1614,14 +1687,14 @@ function selPeriod(el){
 
 function populateEqSelect(sel, preCol, preColPeriod){
   const s=document.getElementById('bk-eq');
-  s.innerHTML=eqActive().map(e=>`<option value="${e.id}"${e.id===sel?' selected':''}>${e.name}</option>`).join('');
+  s.innerHTML=eqActive().map(e=>`<option value="${e.id}"${e.id===sel?' selected':''}>${esc(e.name)}</option>`).join('');
   onEqChange(preCol, preColPeriod);
 }
 
 function populateUserSelect(sel){
   const selUser=sel||currentUser.name;
   const s=document.getElementById('bk-user');
-  s.innerHTML=users.map(u=>`<option value="${u.name}"${u.name===selUser?' selected':''}>${u.name}${u.isExternal?' (ext)':''}</option>`).join('');
+  s.innerHTML=users.map(u=>`<option value="${esc(u.name)}"${u.name===selUser?' selected':''}>${esc(u.name)}${u.isExternal?' (ext)':''}</option>`).join('');
   // Non-admins can only book for themselves
   const note=document.getElementById('bk-user-lock-note');
   if(!currentUser.isAdmin){
@@ -1687,7 +1760,7 @@ function checkShakerCapacity(){
   fill.style.background=total>8?'var(--red)':total>6?'var(--amber)':'var(--blue)';
   const usersEl=document.getElementById('shaker-cap-users');
   if(existing.length){
-    usersEl.textContent='Já reservado: '+existing.map(b=>`${b.user} (${b.shakerVolume||'?'}L)`).join(', ');
+    usersEl.textContent='Já reservado: '+existing.map(b=>`${esc(b.user)} (${b.shakerVolume||'?'}L)`).join(', ');
   } else {
     usersEl.textContent='Nenhuma outra reserva neste período';
   }
@@ -1796,6 +1869,53 @@ function getEffectivePeriod(period, colPeriod){
   return (colPeriod&&colPeriod!=='mesmo') ? colPeriod : period;
 }
 
+// Todas as datas em que uma reserva ocupa um dado equipamento
+function bookingDatesFor(b, eqId){
+  const out=[];
+  if(b.equipment===eqId) out.push(...getEffectiveDates(b.period,b.date,b.dateStart,b.dateEnd));
+  if(b.comboColumn===eqId){
+    const eff=getEffectivePeriod(b.period,b.colPeriod);
+    out.push(...getEffectiveDates(eff,b.date,
+      (b.colPeriod==='multidias')?b.colDateStart:b.dateStart,
+      (b.colPeriod==='multidias')?b.colDateEnd:b.dateEnd));
+    const es=equilSlot(b);
+    if(es&&es.col===eqId) out.push(es.date);
+  }
+  return out;
+}
+
+// Quantos dias seguidos o usuário ficaria com o equipamento, incluindo a nova reserva.
+// Devolve {streak, inicio, fim} da sequência que contém as novas datas.
+function consecutiveRun(eqId, user, newDates, excId){
+  const set=new Set(newDates);
+  bookings.forEach(b=>{
+    if(b.id===excId) return;
+    if(b.user!==user) return;
+    if(b.bookingType==='manutencao') return;
+    bookingDatesFor(b,eqId).forEach(d=>set.add(d));
+  });
+  if(!set.size) return {streak:0};
+  const all=[...set].sort();
+  let best={streak:0};
+  let runStart=all[0], prev=all[0], len=1;
+  const close=()=>{
+    const contemNova=newDates.some(d=>d>=runStart&&d<=prev);
+    if(contemNova&&len>best.streak) best={streak:len, inicio:runStart, fim:prev};
+  };
+  for(let i=1;i<all.length;i++){
+    if(all[i]===prevDayNext(prev)){ len++; }
+    else { close(); runStart=all[i]; len=1; }
+    prev=all[i];
+  }
+  close();
+  return best;
+}
+function prevDayNext(ds){ // dia seguinte a ds
+  const [y,m,d]=ds.split('-').map(Number);
+  const dt=new Date(y,m-1,d); dt.setDate(dt.getDate()+1);
+  return fmtDate(dt);
+}
+
 function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,colDateStart,colDateEnd,equilON){
   const aktaDates = getEffectiveDates(period,date,dateStart,dateEnd);
   // Effective column period
@@ -1819,7 +1939,7 @@ function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,
     // Check AKTA vs AKTA conflict
     const aktaDateOverlap = aktaDates.some(d=>bAktaDates.includes(d));
     if(aktaDateOverlap && periodsOverlap(period,s,e,b.period,b.startTime,b.endTime)){
-      if(b.equipment===eq) return `${eqName(eq)} já reservado neste período por ${b.user}.`;
+      if(b.equipment===eq) return `${eqNameEsc(eq)} já reservado neste período por ${esc(b.user)}.`;
     }
 
     // Check column conflicts (use column's own period/dates)
@@ -1829,13 +1949,13 @@ function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,
         const bcp=bEffColPeriod||b.period;
         const colDateOvlp=colDates.some(d=>bColDates.includes(d));
         if(colDateOvlp&&periodsOverlap(effColPeriod,s,e,bcp,b.startTime,b.endTime))
-          return `${eqName(col)} já está reservada neste período por ${b.user}.`;
+          return `${eqNameEsc(col)} já está reservada neste período por ${esc(b.user)}.`;
       }
       // New col vs existing standalone col booking
       if(b.equipment===col){
         const colDateOvlp=colDates.some(d=>bAktaDates.includes(d));
         if(colDateOvlp&&periodsOverlap(effColPeriod,s,e,b.period,b.startTime,b.endTime))
-          return `${eqName(col)} já reservada neste período por ${b.user}.`;
+          return `${eqNameEsc(col)} já reservada neste período por ${esc(b.user)}.`;
       }
     }
 
@@ -1845,31 +1965,31 @@ function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,
       const myEquilDate=prevDay(colDates[0]);
       // minha véspera x coluna que o outro já usa naquele dia
       if(b.comboColumn===col&&bColDates.includes(myEquilDate)&&periodsOverlap('noite',null,null,bEffColPeriod||b.period,b.startTime,b.endTime))
-        return `${eqName(col)} está reservada em ${fmtBR(myEquilDate)} por ${b.user} — não é possível equilibrar na noite anterior.`;
+        return `${eqNameEsc(col)} está reservada em ${fmtBR(myEquilDate)} por ${esc(b.user)} — não é possível equilibrar na noite anterior.`;
       if(b.equipment===col&&bAktaDates.includes(myEquilDate)&&periodsOverlap('noite',null,null,b.period,b.startTime,b.endTime))
-        return `${eqName(col)} está reservada em ${fmtBR(myEquilDate)} por ${b.user} — não é possível equilibrar na noite anterior.`;
+        return `${eqNameEsc(col)} está reservada em ${fmtBR(myEquilDate)} por ${esc(b.user)} — não é possível equilibrar na noite anterior.`;
       // minha véspera x véspera de outra reserva
       if(bEquil&&bEquil.col===col&&bEquil.date===myEquilDate)
-        return `${eqName(col)} já está em equilibração na noite de ${fmtBR(myEquilDate)} por ${b.user}.`;
+        return `${eqNameEsc(col)} já está em equilibração na noite de ${fmtBR(myEquilDate)} por ${esc(b.user)}.`;
     }
     // véspera de outra reserva x minha reserva da coluna
     if(bEquil&&col&&bEquil.col===col&&colDates.includes(bEquil.date)&&periodsOverlap(effColPeriod,s,e,'noite',null,null))
-      return `${eqName(col)} estará em equilibração na noite de ${fmtBR(bEquil.date)} para a reserva de ${b.user}.`;
+      return `${eqNameEsc(col)} estará em equilibração na noite de ${fmtBR(bEquil.date)} para a reserva de ${esc(b.user)}.`;
     if(bEquil&&bEquil.col===eq&&aktaDates.includes(bEquil.date)&&periodsOverlap(period,s,e,'noite',null,null))
-      return `${eqName(eq)} estará em equilibração na noite de ${fmtBR(bEquil.date)} para a reserva de ${b.user}.`;
+      return `${eqNameEsc(eq)} estará em equilibração na noite de ${fmtBR(bEquil.date)} para a reserva de ${esc(b.user)}.`;
 
     // Check if new booking is a column and conflicts with existing
     const eObj=eqById(eq);
     if(eObj&&eObj.cat==='coluna'){
       if(b.equipment===eq){
         if(aktaDateOverlap&&periodsOverlap(period,s,e,b.period,b.startTime,b.endTime))
-          return `${eqName(eq)} já reservada neste período por ${b.user}.`;
+          return `${eqNameEsc(eq)} já reservada neste período por ${esc(b.user)}.`;
       }
       if(b.comboColumn===eq){
         const bcp=bEffColPeriod||b.period;
         const aktaColDateOvlp=aktaDates.some(d=>bColDates.includes(d));
         if(aktaColDateOvlp&&periodsOverlap(period,s,e,bcp,b.startTime,b.endTime))
-          return `${eqName(eq)} já está vinculada a ${eqName(b.equipment)} por ${b.user}.`;
+          return `${eqNameEsc(eq)} já está vinculada a ${eqNameEsc(b.equipment)} por ${esc(b.user)}.`;
       }
     }
   }
@@ -1923,6 +2043,32 @@ async function saveBooking(){
   const equilONVal=document.getElementById('bk-equil-on')?.checked||false;
   const conflict=checkConflict(date,selectedPeriod,st,en,eq,col,editingId,dateStart,dateEnd,selectedColPeriod,colDateStart,colDateEnd,equilONVal);
   if(conflict){ showConflict(conflict); return; }
+
+  // Limite de dias seguidos por usuário (configurável por equipamento na aba Admin)
+  if(bookingType!=='manutencao'){
+    const alvos=[{id:eq, datas:getEffectiveDates(selectedPeriod,date,dateStart,dateEnd)}];
+    if(col&&col!=='_cromatografia'){
+      const effCol=getEffectivePeriod(selectedPeriod,selectedColPeriod);
+      const dCol=getEffectiveDates(effCol,date,
+        (selectedColPeriod==='multidias')?colDateStart:dateStart,
+        (selectedColPeriod==='multidias')?colDateEnd:dateEnd);
+      if(equilONVal&&dCol.length) dCol.push(prevDay(dCol[0]));
+      alvos.push({id:col, datas:dCol});
+    }
+    for(const alvo of alvos){
+      const lim=maxDaysOf(alvo.id);
+      const run=consecutiveRun(alvo.id, user, alvo.datas, editingId);
+      if(run.streak>lim){
+        const msg=`${eqNameEsc(alvo.id)}: esta reserva deixaria ${esc(user)} com ${run.streak} dias seguidos `+
+                  `(${fmtBR(run.inicio)} a ${fmtBR(run.fim)}), acima do limite de ${lim}.`;
+        if(!currentUser.isAdmin){
+          showConflict(msg+' Fale com um responsável se precisar de mais tempo.');
+          return;
+        }
+        if(!confirm(`Atenção: ${eqName(alvo.id)} — esta reserva deixaria ${user} com ${run.streak} dias seguidos (limite: ${lim}).\n\nComo administrador você pode confirmar mesmo assim. Deseja continuar?`)) return;
+      }
+    }
+  }
 
   // Warn if column near/at usage limit
   const colsToCheck=[];
@@ -1980,7 +2126,7 @@ Deseja continuar?`))return;
     closeModal();
     toast(wasEdit?'Reserva atualizada':'Reserva confirmada');
   }catch(err){
-    showConflict('Erro ao salvar: '+err.message);
+    showConflict('Erro ao salvar: '+errMsg(err));
   }finally{
     saveBtn.textContent='Salvar reserva';
     saveBtn.disabled=false;
@@ -2015,7 +2161,7 @@ async function deleteBooking(){
     closeModal();
     toast('Reserva excluída','trash');
   }catch(err){
-    alert('Erro ao excluir: '+err.message);
+    alert('Erro ao excluir: '+errMsg(err));
   }finally{
     btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg> Excluir';
     btn.disabled=false;
@@ -2057,14 +2203,14 @@ function populateFilters(force){
   if(fe.options.length>1 && !force) return;
   const cur=fe.value;
   fe.innerHTML='<option value="">Todos os equipamentos</option>'+
-    EQ.map(e=>`<option value="${e.id}"${e.id===cur?' selected':''}>${e.name}${e.active===false?' (inativo)':''}</option>`).join('');
+    EQ.map(e=>`<option value="${e.id}"${e.id===cur?' selected':''}>${esc(e.name)}${e.active===false?' (inativo)':''}</option>`).join('');
 }
 
 function renderReservas(){
   // Sync user filter options with current users list
   const fu=document.getElementById('f-user');
   const curFu=fu.value;
-  fu.innerHTML='<option value="">Todos os usuários</option>'+users.map(u=>`<option value="${u.name}"${u.name===curFu?' selected':''}>${u.name}</option>`).join('');
+  fu.innerHTML='<option value="">Todos os usuários</option>'+users.map(u=>`<option value="${esc(u.name)}"${u.name===curFu?' selected':''}>${esc(u.name)}</option>`).join('');
   const eqF=document.getElementById('f-eq').value;
   const uF=fu.value;
   const sF=document.getElementById('f-search').value.toLowerCase();
@@ -2086,15 +2232,15 @@ function renderReservas(){
 
   const list=document.getElementById('reservas-list');
   if(!bks.length){
-    const filterDesc=eqF?` para ${eqName(eqF)}`:'';
-    list.innerHTML=`<div class="empty"><svg class="ico" style="width:34px;height:34px;margin:0 auto 10px;display:block;opacity:.35;stroke-width:1.4"><use href="#i-calendar"/></svg><p>Nenhuma reserva encontrada${filterDesc}</p><p style="font-size:12px;margin-top:4px">Tente mudar os filtros ou <a href="#" onclick="event.preventDefault();switchTabById('calendar')">veja o calendário</a></p></div>`;
+    const filterDesc=eqF?` para ${eqNameEsc(eqF)}`:'';
+    list.innerHTML=`<div class="empty"><svg class="bf bf-xs" style="margin:0 auto 8px;opacity:.85"><use href="#m-buffer-sleep"/></svg><p>Nenhuma reserva encontrada${filterDesc}</p><p style="font-size:12px;margin-top:4px">Tente mudar os filtros ou <a href="#" onclick="event.preventDefault();switchTabById('calendar')">veja o calendário</a></p></div>`;
     return;
   }
   const pl={manha:'Manhã',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário esp.'};
   list.innerHTML=bks.map(b=>{
     const e=eqById(b.equipment);
     const cat=e?e.cat:'outro';
-    const colInfo=b.comboColumn?(b.comboColumn==='_cromatografia'?'<span class="badge badge-other" style="font-size:10px">Só cromatografia</span>':`<span class="badge badge-col" style="font-size:10px">+ ${eqName(b.comboColumn)}${b.equilON?' '+ico('moon','ico-xs')+' ON':''}  </span>`):'';
+    const colInfo=b.comboColumn?(b.comboColumn==='_cromatografia'?'<span class="badge badge-other" style="font-size:10px">Só cromatografia</span>':`<span class="badge badge-col" style="font-size:10px">+ ${eqNameEsc(b.comboColumn)}${b.equilON?' '+ico('moon','ico-xs')+' ON':''}  </span>`):'';
     let time;
     if(b.period==='custom') time=`${b.startTime}–${b.endTime}`;
     else if(b.period==='multidias'&&b.dateStart&&b.dateEnd) time=`${fmtBR(b.dateStart)} até ${fmtBR(b.dateEnd)}`;
@@ -2109,13 +2255,13 @@ function renderReservas(){
     return `<div class="reserva-item" onclick="openEdit('${b.id}')" style="${isManut?'border-left:3px solid var(--amber)':''}">
       <div class="ri-top">
         ${isManut?`<span class="badge badge-manut">${ico('wrench','ico-xs')} Manutenção</span>`:''}
-        <span class="badge ${eqBadge(cat)||'badge-other'}">${eqName(b.equipment)}</span>
+        <span class="badge ${eqBadge(cat)||'badge-other'}">${eqNameEsc(b.equipment)}</span>
         ${colInfo}
         <span class="ri-date">${fmtBR(b.date)}</span>
       </div>
-      ${b.protein?`<div style="margin-bottom:3px"><span class="protocol-badge">${ico('flask','ico-xs')} ${b.protein}</span></div>`:''}
-      ${b.shakerErlens||b.shakerTemp1?`<div style="margin-bottom:3px">${b.shakerErlens?`<span class="badge-shaker">${ico('layers','ico-xs')} ${b.shakerErlens} erlens</span> `:''}${b.shakerVolume?`<span class="badge-shaker">${b.shakerVolume}L</span> `:''}${b.shakerTemp1?`<span class="badge-shaker">${b.shakerTemp1}°C</span> `:''}${b.shakerOvernight&&b.shakerTemp2?`<span class="badge-shaker">→ ${b.shakerTemp2}°C ON</span>`:''}${b.shakerEndTime?`<span class="badge-shaker">até ${b.shakerEndDate?fmtBR(b.shakerEndDate)+' ':''} ${b.shakerEndTime}</span>`:''}</div>`:''}
-      <div class="ri-info">${svgUser()} ${b.user}${b.user2?` + ${b.user2}`:''}${b.institution?` <span class="badge-ext">${b.institution}</span>`:''} · ${time}${colTime}${b.notes?` · <em>${b.notes}</em>`:''}</div>
+      ${b.protein?`<div style="margin-bottom:3px"><span class="protocol-badge">${ico('flask','ico-xs')} ${esc(b.protein)}</span></div>`:''}
+      ${b.shakerErlens||b.shakerTemp1?`<div style="margin-bottom:3px">${b.shakerErlens?`<span class="badge-shaker">${ico('layers','ico-xs')} ${b.shakerErlens} erlens</span> `:''}${b.shakerVolume?`<span class="badge-shaker">${esc(b.shakerVolume)}L</span> `:''}${b.shakerTemp1?`<span class="badge-shaker">${b.shakerTemp1}°C</span> `:''}${b.shakerOvernight&&b.shakerTemp2?`<span class="badge-shaker">→ ${b.shakerTemp2}°C ON</span>`:''}${b.shakerEndTime?`<span class="badge-shaker">até ${b.shakerEndDate?fmtBR(b.shakerEndDate)+' ':''} ${b.shakerEndTime}</span>`:''}</div>`:''}
+      <div class="ri-info">${svgUser()} ${esc(b.user)}${b.user2?` + ${esc(b.user2)}`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${time}${colTime}${b.notes?` · <em>${esc(b.notes)}</em>`:''}</div>
     </div>`;
   }).join('');
 }
@@ -2152,7 +2298,7 @@ function renderEquipamentos(){
     }
     return `<div class="eq-card" onclick="openEqDetail('${e.id}')">
       <div class="eq-card-strip ${strip}"></div>
-      <div class="eq-name">${e.name}</div>
+      <div class="eq-name">${esc(e.name)}</div>
       <span class="badge ${badgeCls}">${catLabel}</span>
       ${isManut?`<span style="font-size:11px;color:var(--amber);font-weight:500">${ico('wrench','ico-xs')} Em manutenção</span>`:busy?'<span class="eq-busy">● Ocupado hoje</span>':'<span class="eq-avail">● Disponível hoje</span>'}
       ${colUsageHtml}
@@ -2164,6 +2310,16 @@ function renderEquipamentos(){
 
 
 // Confirmação discreta: toda ação recebe resposta visível
+// Avisa quando a rede cai — evita a sensação de que o sistema travou
+function initNetworkWatch(){
+  const bar=document.getElementById('offline-bar');
+  const sync=()=>{ if(bar) bar.style.display=navigator.onLine?'none':'block'; };
+  window.addEventListener('online',()=>{ sync(); toast('Conexão restabelecida'); });
+  window.addEventListener('offline',sync);
+  sync();
+}
+document.addEventListener('DOMContentLoaded',initNetworkWatch);
+
 function toast(msg, iconName){
   const wrap=document.getElementById('toast-wrap');
   if(!wrap) return;
@@ -2254,18 +2410,19 @@ function renderAdminEquipment(){
     const usos=bookings.filter(b=>b.equipment===e.id||b.comboColumn===e.id).length;
     const meta=[CAT_LABEL[e.cat]||'Outro'];
     if(e.cat==='coluna') meta.push(`limite ${colLimitOf(e.id)} usos`);
+    meta.push(`máx ${maxDaysOf(e.id)} dias seguidos`);
     if(e.isShaker) meta.push('campos de expressão');
     if(e.active===false) meta.push('inativo');
     meta.push(`${usos} reserva${usos===1?'':'s'}`);
     return `<div class="eq-row${e.active===false?' inactive':''}">
       <span class="eq-row-dot" style="background:${CAT_COLOR[e.cat]||'var(--gray)'};${e.active===false?'opacity:.35':''}"></span>
       <div class="eq-row-name">
-        ${e.name}
+        ${esc(e.name)}
         <div class="eq-row-meta">${meta.join(' · ')}</div>
       </div>
       <div class="eq-row-actions">
-        <button class="btn btn-sm eq-order-btn" title="Mover para cima" ${i===0?'disabled':''} onclick="moveEq('${e.id}',-1)"><svg class="ico ico-xs"><use href="#i-up"/></svg></button>
-        <button class="btn btn-sm eq-order-btn" title="Mover para baixo" ${i===EQ.length-1?'disabled':''} onclick="moveEq('${e.id}',1)"><svg class="ico ico-xs"><use href="#i-down"/></svg></button>
+        <button class="btn btn-sm eq-order-btn" aria-label="Mover ${esc(e.name)} para cima" title="Mover para cima" ${i===0?'disabled':''} onclick="moveEq('${e.id}',-1)"><svg class="ico ico-xs"><use href="#i-up"/></svg></button>
+        <button class="btn btn-sm eq-order-btn" aria-label="Mover ${esc(e.name)} para baixo" title="Mover para baixo" ${i===EQ.length-1?'disabled':''} onclick="moveEq('${e.id}',1)"><svg class="ico ico-xs"><use href="#i-down"/></svg></button>
         <button class="btn btn-sm" onclick="openEqEdit('${e.id}')"><svg class="ico ico-xs"><use href="#i-pencil"/></svg> Editar</button>
       </div>
     </div>`;
@@ -2281,11 +2438,11 @@ async function seedEquipment(){
     const batch=db.batch();
     DEFAULT_EQ.forEach((e,i)=>{
       const {id,...rest}=e;
-      batch.set(db.collection('equipment').doc(id),{...rest, order:i, active:true, createdAt:new Date().toISOString()},{merge:true});
+      batch.set(db.collection('equipment').doc(id),{maxDays:DEFAULT_MAX_DAYS, ...rest, order:i, active:true, createdAt:new Date().toISOString()},{merge:true});
     });
-    await batch.commit();
+    await withTimeout(batch.commit(), 15000, 'importar os equipamentos');
     toast('Equipamentos importados');
-  }catch(err){ alert('Erro ao importar: '+err.message); }
+  }catch(err){ alert('Erro ao importar: '+errMsg(err)); }
   finally{ if(btn){ btn.innerHTML='<svg class="ico ico-sm"><use href="#i-download"/></svg> Importar padrões'; btn.disabled=false; } }
 }
 
@@ -2305,6 +2462,7 @@ function openEqEdit(id){
   document.getElementById('eqm-name').value=e?e.name:'';
   document.getElementById('eqm-cat').value=e?e.cat:'akta';
   document.getElementById('eqm-limit').value=e?.colLimit||10;
+  document.getElementById('eqm-maxdays').value=e?.maxDays||DEFAULT_MAX_DAYS;
   document.getElementById('eqm-shaker').checked=!!e?.isShaker;
   document.getElementById('eqm-active').checked=e?e.active!==false:true;
   document.getElementById('eqm-error').style.display='none';
@@ -2331,6 +2489,7 @@ async function saveEqEdit(){
   const name=document.getElementById('eqm-name').value.trim();
   const cat=document.getElementById('eqm-cat').value;
   const limit=parseInt(document.getElementById('eqm-limit').value)||10;
+  const maxDays=Math.max(1,parseInt(document.getElementById('eqm-maxdays').value)||DEFAULT_MAX_DAYS);
   const isShaker=document.getElementById('eqm-shaker').checked;
   const active=document.getElementById('eqm-active').checked;
 
@@ -2341,21 +2500,21 @@ async function saveEqEdit(){
   const btn=document.getElementById('eqm-save');
   btn.textContent='Salvando...'; btn.disabled=true;
   try{
-    const data={name, cat, active};
+    const data={name, cat, active, maxDays};
     if(cat==='coluna') data.colLimit=limit; else data.colLimit=null;
     data.isShaker=(cat==='outro')?isShaker:false;
 
     if(id){
-      await db.collection('equipment').doc(id).update(data);
+      await withTimeout(db.collection('equipment').doc(id).update(data), 10000, 'salvar o equipamento');
     }else{
       let newId=slugify(name), n=2;
       while(EQ.some(e=>e.id===newId)){ newId=slugify(name)+'-'+n; n++; }
       const maxOrder=EQ.reduce((m,e)=>Math.max(m,e.order??0),0);
-      await db.collection('equipment').doc(newId).set({...data, order:maxOrder+1, createdAt:new Date().toISOString()});
+      await withTimeout(db.collection('equipment').doc(newId).set({...data, order:maxOrder+1, createdAt:new Date().toISOString()}), 10000, 'criar o equipamento');
     }
     hide('eq-edit-modal');
     toast(id?'Equipamento atualizado':'Equipamento adicionado');
-  }catch(err){ eqmError('Erro ao salvar: '+err.message); }
+  }catch(err){ eqmError('Erro ao salvar: '+errMsg(err)); }
   finally{ btn.textContent='Salvar'; btn.disabled=false; }
 }
 
@@ -2372,11 +2531,11 @@ async function deleteEq(){
   }
   if(!confirm(`Excluir "${e.name}" definitivamente?`)) return;
   try{
-    await db.collection('equipment').doc(id).delete();
+    await withTimeout(db.collection('equipment').doc(id).delete(), 10000, 'excluir o equipamento');
     if(e.cat==='coluna'){ try{ await db.collection('colCounters').doc(id).delete(); }catch(_){} }
     hide('eq-edit-modal');
     toast('Equipamento excluído','trash');
-  }catch(err){ eqmError('Erro ao excluir: '+err.message); }
+  }catch(err){ eqmError('Erro ao excluir: '+errMsg(err)); }
 }
 
 async function moveEq(id,dir){
@@ -2389,7 +2548,7 @@ async function moveEq(id,dir){
     batch.update(db.collection('equipment').doc(a.id),{order:(b.order??j)});
     batch.update(db.collection('equipment').doc(b.id),{order:(a.order??i)});
     await batch.commit();
-  }catch(err){ alert('Erro ao reordenar: '+err.message); }
+  }catch(err){ alert('Erro ao reordenar: '+errMsg(err)); }
 }
 
 // ═══════════════════════════════════════════════════
@@ -2413,7 +2572,7 @@ function renderAdminColCounters(){
     const lr=colCounters[e.id]?.lastReset;
     return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--border)">
       <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:500;margin-bottom:3px">${e.name}</div>
+        <div style="font-size:12px;font-weight:500;margin-bottom:3px">${esc(e.name)}</div>
         <div style="background:var(--bg3);border-radius:3px;height:6px;overflow:hidden">
           <div style="width:${cs.pct}%;height:100%;background:${barColor};border-radius:3px;transition:width .3s"></div>
         </div>
@@ -2432,16 +2591,16 @@ function renderAdminColCounters(){
 
 function renderAdminUsers(){
   const list=document.getElementById('admin-user-list');
-  if(!users.length){ list.innerHTML='<div class="empty-state">Nenhum usuário cadastrado ainda.</div>'; return; }
+  if(!users.length){ list.innerHTML=`<div class="empty-state"><svg class="bf bf-xs"><use href="#m-buffer-sleep"/></svg>Nenhum usuário cadastrado ainda.</div>`; return; }
   const sorted=[...users].sort((a,b)=>a.name.localeCompare(b.name,'pt'));
   list.innerHTML=sorted.map(u=>`
     <div class="user-row">
       <div class="avatar${u.isAdmin?' admin':''}">${initials(u.name)}</div>
-      <span class="uname">${u.name}${u.email?` <span style="font-size:11px;color:var(--text3)">${u.email}</span>`:''}${u.isExternal?` <span class="user-ext-tag">Ext${u.institution?' · '+u.institution:''}</span>`:''}</span>
+      <span class="uname">${esc(u.name)}${u.email?` <span style="font-size:11px;color:var(--text3)">${esc(u.email)}</span>`:''}${u.isExternal?` <span class="user-ext-tag">Ext${u.institution?' · '+u.institution:''}</span>`:''}</span>
       ${u.isAdmin?'<span class="admin-tag">Admin</span>':''}
       <button class="btn btn-sm" onclick="editUserInstitution('${u.id}')">Editar</button>
       <button class="btn btn-sm" onclick="toggleAdmin('${u.id}',${!u.isAdmin})">${u.isAdmin?'Remover admin':'Tornar admin'}</button>
-      ${u.id!==currentUser.id?`<button class="btn btn-sm btn-danger" onclick="revokeAccess('${u.id}','${u.name}')">Revogar acesso</button>`:'<span style="width:60px"></span>'}
+      ${u.id!==currentUser.id?`<button class="btn btn-sm btn-danger" onclick="revokeAccess('${u.id}','${jsq(u.name)}')">Revogar acesso</button>`:'<span style="width:60px"></span>'}
     </div>`).join('');
 }
 
@@ -2449,17 +2608,17 @@ function renderAdminBookings(){
   const list=document.getElementById('admin-reservas-list');
   const bks=[...bookings].sort((a,b)=>b.date.localeCompare(a.date));
   const pl={manha:'Manhã',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário esp.'};
-  if(!bks.length){list.innerHTML='<div class="empty-state">Nenhuma reserva registrada.</div>';return;}
+  if(!bks.length){list.innerHTML=`<div class="empty-state"><svg class="bf bf-xs"><use href="#m-buffer-sleep"/></svg>Nenhuma reserva registrada.</div>`;return;}
   list.innerHTML=bks.map(b=>{
     const e=eqById(b.equipment);
     const cat=e?e.cat:'outro';
     return `<div class="reserva-item" onclick="openEdit('${b.id}')">
       <div class="ri-top">
-        <span class="badge ${eqBadge(cat)||'badge-other'}">${eqName(b.equipment)}</span>
-        ${b.comboColumn?`<span class="badge badge-col" style="font-size:10px">+ ${eqName(b.comboColumn)}</span>`:''}
+        <span class="badge ${eqBadge(cat)||'badge-other'}">${eqNameEsc(b.equipment)}</span>
+        ${b.comboColumn?`<span class="badge badge-col" style="font-size:10px">+ ${eqNameEsc(b.comboColumn)}</span>`:''}
         <span class="ri-date">${fmtBR(b.date)}</span>
       </div>
-      <div class="ri-info">${svgUser()} ${b.user} · ${pl[b.period]||b.period}</div>
+      <div class="ri-info">${svgUser()} ${esc(b.user)} · ${pl[b.period]||b.period}</div>
     </div>`;
   }).join('');
 }
@@ -2496,7 +2655,10 @@ async function toggleAdmin(uid, val){
 
 async function revokeAccess(uid, name){
   if(!confirm(`Revogar acesso de ${name}? O perfil será removido, mas as reservas feitas por essa pessoa serão mantidas. A pessoa ainda poderá criar uma nova conta se tiver o link.`))return;
-  await db.collection('users').doc(uid).delete();
+  try{
+    await withTimeout(db.collection('users').doc(uid).delete(), 10000, 'revogar o acesso');
+    toast('Acesso revogado','trash');
+  }catch(err){ alert('Erro ao revogar: '+errMsg(err)); }
 }
 
 // ═══════════════════════════════════════════════════
@@ -2530,7 +2692,12 @@ function exportCSV(){
       b.notes||''
     ]);
   });
-  const csv='\uFEFF'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const csv='\uFEFF'+rows.map(r=>r.map(c=>{
+    let v=String(c==null?'':c);
+    // Excel/Sheets interpretam =, +, -, @ no início como fórmula
+    if(/^[=+\-@\t\r]/.test(v)) v="'"+v;
+    return '"'+v.replace(/"/g,'""')+'"';
+  }).join(',')).join('\r\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
   a.download=`reservas_lab_${fmtDate(new Date())}.csv`;
@@ -2575,12 +2742,12 @@ function openDayPopup(ds){
       return `<div class="day-bk-item" onclick="closeDayPopup();openEdit('${b.id}')">
         <div class="day-bk-top">
           ${b.bookingType==='manutencao'?`<span class="badge badge-manut">${ico('wrench','ico-xs')} Manutenção</span>`:''}
-          <span class="badge ${eqBadge(cat)||'badge-other'}">${eqName(b.equipment)}</span>
-          ${b.comboColumn?`<span class="badge badge-col" style="font-size:10px">+ ${eqName(b.comboColumn)}</span>`:''}
+          <span class="badge ${eqBadge(cat)||'badge-other'}">${eqNameEsc(b.equipment)}</span>
+          ${b.comboColumn?`<span class="badge badge-col" style="font-size:10px">+ ${eqNameEsc(b.comboColumn)}</span>`:''}
         </div>
-        ${b.protein?`<div style="margin-bottom:4px"><span class="protocol-badge">${ico('flask','ico-xs')} ${b.protein}</span></div>`:''}
-        ${b.shakerErlens||b.shakerTemp1?`<div style="margin-bottom:4px">${b.shakerErlens?`<span class="badge-shaker">${ico('layers','ico-xs')} ${b.shakerErlens} erlens</span> `:''}${b.shakerVolume?`<span class="badge-shaker">${b.shakerVolume}L</span> `:''}${b.shakerTemp1?`<span class="badge-shaker">${b.shakerTemp1}°C${b.shakerOvernight&&b.shakerTemp2?' → '+b.shakerTemp2+'°C ON':''}</span>`:''}${b.shakerTempChange?` <span style="font-size:11px;color:var(--text2)">troca às ${b.shakerTempChange}</span>`:''}</div>`:''}
-        <div class="day-bk-info">${svgUser()} <strong>${b.user}</strong>${b.user2?` + <strong>${b.user2}</strong>`:''}${b.institution?` <span class="badge-ext">${b.institution}</span>`:''} · ${time}${b.notes?` · <em>${b.notes}</em>`:''}</div>
+        ${b.protein?`<div style="margin-bottom:4px"><span class="protocol-badge">${ico('flask','ico-xs')} ${esc(b.protein)}</span></div>`:''}
+        ${b.shakerErlens||b.shakerTemp1?`<div style="margin-bottom:4px">${b.shakerErlens?`<span class="badge-shaker">${ico('layers','ico-xs')} ${b.shakerErlens} erlens</span> `:''}${b.shakerVolume?`<span class="badge-shaker">${esc(b.shakerVolume)}L</span> `:''}${b.shakerTemp1?`<span class="badge-shaker">${b.shakerTemp1}°C${b.shakerOvernight&&b.shakerTemp2?' → '+b.shakerTemp2+'°C ON':''}</span>`:''}${b.shakerTempChange?` <span style="font-size:11px;color:var(--text2)">troca às ${b.shakerTempChange}</span>`:''}</div>`:''}
+        <div class="day-bk-info">${svgUser()} <strong>${esc(b.user)}</strong>${b.user2?` + <strong>${esc(b.user2)}</strong>`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${time}${b.notes?` · <em>${esc(b.notes)}</em>`:''}</div>
       </div>`;
     }).join('');
   }
@@ -2665,8 +2832,8 @@ function openEqDetail(eqId){
     html += `<div style="margin-top:4px"><div class="eq-hist-title">Próximas reservas</div>`;
     html += futureBks.slice(0,5).map(b=>`
       <div class="day-bk-item" onclick="closeEqDetail();openEdit('${b.id}')">
-        <div class="day-bk-top"><span style="font-size:12px;font-weight:600">${fmtBR(b.date)}</span>${b.protein?`<span class="protocol-badge" style="margin-left:6px">${ico('flask','ico-xs')} ${b.protein}</span>`:''}</div>
-        <div class="day-bk-info">${svgUser()} <strong>${b.user}</strong>${b.user2?` + ${b.user2}`:''}${b.institution?` <span class="badge-ext">${b.institution}</span>`:''} · ${pl[b.period]||b.period}${b.notes?` · <em>${b.notes}</em>`:''}</div>
+        <div class="day-bk-top"><span style="font-size:12px;font-weight:600">${fmtBR(b.date)}</span>${b.protein?`<span class="protocol-badge" style="margin-left:6px">${ico('flask','ico-xs')} ${esc(b.protein)}</span>`:''}</div>
+        <div class="day-bk-info">${svgUser()} <strong>${esc(b.user)}</strong>${b.user2?` + ${esc(b.user2)}`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${pl[b.period]||b.period}${b.notes?` · <em>${esc(b.notes)}</em>`:''}</div>
       </div>`).join('');
     html += '</div>';
   } else {
@@ -2677,8 +2844,8 @@ function openEqDetail(eqId){
     html += `<div style="margin-top:4px"><div class="eq-hist-title">Últimas reservas</div>`;
     html += pastBks.map(b=>`
       <div class="day-bk-item" style="opacity:.7" onclick="closeEqDetail();openEdit('${b.id}')">
-        <div class="day-bk-top"><span style="font-size:12px;font-weight:600">${fmtBR(b.date)}</span>${b.protein?`<span class="protocol-badge" style="margin-left:6px">${ico('flask','ico-xs')} ${b.protein}</span>`:''}</div>
-        <div class="day-bk-info">${svgUser()} <strong>${b.user}</strong>${b.user2?` + ${b.user2}`:''}${b.institution?` <span class="badge-ext">${b.institution}</span>`:''} · ${pl[b.period]||b.period}</div>
+        <div class="day-bk-top"><span style="font-size:12px;font-weight:600">${fmtBR(b.date)}</span>${b.protein?`<span class="protocol-badge" style="margin-left:6px">${ico('flask','ico-xs')} ${esc(b.protein)}</span>`:''}</div>
+        <div class="day-bk-info">${svgUser()} <strong>${esc(b.user)}</strong>${b.user2?` + ${esc(b.user2)}`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${pl[b.period]||b.period}</div>
       </div>`).join('');
     html += '</div>';
   }
@@ -2761,13 +2928,15 @@ async function resetColCounter(colId){
   if(!confirm(`Resetar contador de "${colName}"?
 
 Isso indica que a coluna foi limpa/regenerada.`))return;
-  await db.collection('colCounters').doc(colId).set({
-    uses:0,
-    limit: colLimitOf(colId),
-    lastReset: new Date().toISOString(),
-    lastResetBy: currentUser.name
-  },{merge:true});
-  toast(`Contador de ${colName} zerado`,'refresh');
+  try{
+    await withTimeout(db.collection('colCounters').doc(colId).set({
+      uses:0,
+      limit: colLimitOf(colId),
+      lastReset: new Date().toISOString(),
+      lastResetBy: currentUser.name
+    },{merge:true}), 10000, 'zerar o contador');
+    toast(`Contador de ${colName} zerado`,'refresh');
+  }catch(err){ alert('Erro ao zerar o contador: '+errMsg(err)); }
 }
 
 async function setColLimit(colId){
@@ -2775,7 +2944,10 @@ async function setColLimit(colId){
   const val=prompt(`Limite de usos para "${eqName(colId)}":
 (Atual: ${current})`, current);
   if(!val||isNaN(parseInt(val)))return;
-  await db.collection('colCounters').doc(colId).set({limit:parseInt(val)},{merge:true});
+  try{
+    await withTimeout(db.collection('colCounters').doc(colId).set({limit:parseInt(val)},{merge:true}), 10000, 'ajustar o limite');
+    toast('Limite atualizado','sliders');
+  }catch(err){ alert('Erro ao ajustar o limite: '+errMsg(err)); }
 }
 
 function getColStatus(colId){
@@ -2811,6 +2983,36 @@ function v(id){ return document.getElementById(id).value.trim(); }
 function show(id){ document.getElementById(id).style.display='block'; }
 function hide(id){ document.getElementById(id).style.display='none'; }
 function showEl(id,html){ const el=document.getElementById(id); el.innerHTML=html; el.style.display='block'; }
+
+// ═══════════════════════════════════════════════════
+// SEGURANÇA: escapa texto do usuário antes de ir para o HTML
+// Sem isto, um nome como <img onerror=...> viraria código na página.
+// ═══════════════════════════════════════════════════
+// Toda escrita no banco passa por aqui: prazo máximo e erro legível
+function withTimeout(promise, ms, oque){
+  return Promise.race([
+    promise,
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error(`Tempo esgotado ao ${oque||'salvar'}. Verifique sua conexão.`)), ms||12000))
+  ]);
+}
+// Mensagem de erro amigável a partir do erro do Firebase
+function errMsg(err){
+  const m={'permission-denied':'Sem permissão para esta ação. Faça login novamente.',
+           'unavailable':'Sem conexão com o servidor. Tente novamente.',
+           'not-found':'Registro não encontrado — talvez já tenha sido removido.',
+           'already-exists':'Este registro já existe.'};
+  return m[err?.code] || err?.message || 'Erro inesperado.';
+}
+
+function esc(v){
+  if(v===null||v===undefined) return '';
+  return String(v).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+// Para valores que entram como argumento de função dentro de onclick="..."
+function jsq(v){
+  return String(v===null||v===undefined?'':v).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
 function ico(name,cls){ return `<svg class="ico${cls?' '+cls:''}"><use href="#i-${name}"/></svg>`; }
 function svgUser(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;vertical-align:-1px"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"/></svg>`; }
 </script>
