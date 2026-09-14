@@ -98,6 +98,41 @@
 .aviso-preview{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius-sm);
   padding:11px 12px;font-size:var(--fs-caption);line-height:1.55;white-space:pre-wrap;color:var(--text2);
   max-height:190px;overflow:auto}
+/* Documentação */
+#col-docs-hint{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;margin-bottom:10px}
+.col-chips{display:flex;flex-wrap:wrap;gap:5px}
+.col-chip{font-size:11px;background:var(--bg);border:0.5px solid var(--border);border-radius:5px;padding:3px 7px;color:var(--text2)}
+.col-chip b{color:var(--text);font-weight:600}
+.col-docs{display:flex;flex-direction:column;gap:3px;margin-top:7px}
+.col-doc-link{font-size:var(--fs-caption);color:var(--blue-dark);text-decoration:none;display:flex;align-items:center;gap:5px}
+.col-doc-link:hover{text-decoration:underline}
+.doc-group{margin-bottom:var(--sp5)}
+.doc-group-head{font-size:var(--fs-caption);font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--text3);margin-bottom:var(--sp2);display:flex;align-items:center;gap:var(--sp2)}
+.doc-group-head span{background:var(--bg3);border-radius:10px;padding:1px 7px;font-size:11px;letter-spacing:0}
+.doc-row{display:flex;align-items:stretch;background:var(--bg)}
+.doc-row:hover{background:var(--bg2)}
+.doc-link{flex:1;min-width:0;display:flex;align-items:center;gap:var(--sp3);padding:12px 14px;
+  text-decoration:none;color:inherit}
+.doc-broken{opacity:.55;cursor:not-allowed}
+.doc-ico{color:var(--blue);display:flex;flex:none}
+.doc-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.doc-title{font-size:var(--fs-footnote);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc-meta{font-size:var(--fs-caption);color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc-open{color:var(--text3);display:flex;align-items:center;flex:none}
+.doc-row:hover .doc-open{color:var(--blue)}
+.doc-edit{align-self:center;margin-right:10px;padding:6px 8px;flex:none}
+/* Ficha técnica */
+.spec-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);
+  border:0.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;margin-top:6px}
+.spec-cell{background:var(--bg);padding:9px 11px}
+.spec-cell.full{grid-column:1/-1}
+.spec-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:2px}
+.spec-val{font-size:var(--fs-footnote);font-weight:500;line-height:1.4}
+.eq-detail-section{font-size:var(--fs-caption);font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--text3);margin:var(--sp5) 0 var(--sp2);display:flex;align-items:center;gap:var(--sp2)}
+.eq-detail-section::after{content:'';flex:1;height:0.5px;background:var(--border)}
+
 .solic-item{background:var(--amber-light);border:0.5px solid var(--amber);border-radius:var(--radius-sm);padding:11px 12px;margin-bottom:8px}
 .solic-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:var(--fs-footnote)}
 .solic-meta{font-size:var(--fs-caption);color:var(--text2);margin-top:4px}
@@ -520,6 +555,12 @@ select option{background:var(--bg2);color:var(--text)}
     <path d="M12 2.5 8.5 22M12 2.5 15.5 22M5.5 8h13M4 17h16"/>
   </g>
 </symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5.5l-8-3-8 3V12c0 6 8 10 8 10z"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M10 8.5l6 3.5-6 3.5z"/></symbol>
+<symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
 <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></symbol>
 <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
 <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></symbol>
@@ -637,6 +678,10 @@ select option{background:var(--bg2);color:var(--text)}
         <svg class="ico"><use href="#i-box"/></svg>
         Equipamentos
       </div>
+      <div class="nav-tab" data-tab="docs" onclick="switchTab(this)">
+        <svg class="ico"><use href="#i-book"/></svg>
+        Documentação
+      </div>
       <div class="nav-tab" id="admin-tab" data-tab="admin" onclick="switchTab(this)" style="display:none">
         <svg class="ico"><use href="#i-sliders"/></svg>
         Admin<span id="pend-badge" style="display:none;background:var(--amber);color:#fff;border-radius:9px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:5px">0</span>
@@ -692,6 +737,20 @@ select option{background:var(--bg2);color:var(--text)}
       <!-- EQUIPAMENTOS -->
       <div class="panel" id="panel-equipamentos">
         <div class="eq-grid" id="eq-grid"></div>
+      </div>
+
+      <!-- DOCUMENTAÇÃO -->
+      <div class="panel" id="panel-docs">
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+          <input type="text" id="doc-search" placeholder="Buscar manual, protocolo, equipamento..." style="flex:1;min-width:170px" oninput="renderDocs()">
+          <select id="doc-filter-kind" onchange="renderDocs()" style="flex:0 1 160px">
+            <option value="">Todos os tipos</option>
+          </select>
+          <button class="btn btn-sm btn-primary" id="doc-add-btn" style="display:none" onclick="openDocEdit(null)">
+            <svg class="ico ico-sm"><use href="#i-plus"/></svg> Adicionar
+          </button>
+        </div>
+        <div id="docs-list"></div>
       </div>
 
       <!-- ADMIN -->
@@ -773,6 +832,66 @@ select option{background:var(--bg2);color:var(--text)}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>
         Nova reserva neste dia
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- DOC EDIT MODAL -->
+<div class="overlay" id="doc-edit-modal" style="display:none" onclick="if(event.target===this)hide('doc-edit-modal')">
+  <div class="modal" style="max-width:440px" role="dialog" aria-modal="true" aria-labelledby="docm-title">
+    <div class="grabber" data-close="hideDocEdit"></div>
+    <div class="modal-head">
+      <h3 id="docm-title">Novo documento</h3>
+      <button class="btn btn-icon" aria-label="Fechar" onclick="hide('doc-edit-modal')"><svg class="ico"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="docm-id">
+      <div class="field">
+        <label>Título</label>
+        <input type="text" id="docm-title-input" maxlength="120" placeholder="ex: Manual de operação — ÄKTA GO" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Link</label>
+        <input type="url" id="docm-url" maxlength="600" placeholder="https://drive.google.com/..." autocomplete="off" inputmode="url">
+        <p class="field-hint">Cole o link do Drive, do site do fabricante ou de onde o arquivo estiver. Confira antes se o compartilhamento no Drive permite que o laboratório abra.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field">
+          <label>Tipo</label>
+          <select id="docm-kind">
+            <option value="manual">Manual do fabricante</option>
+            <option value="protocolo">Protocolo interno</option>
+            <option value="seguranca">Ficha de segurança</option>
+            <option value="video">Vídeo / treinamento</option>
+            <option value="planilha">Planilha / modelo</option>
+            <option value="artigo">Artigo / referência</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Equipamento</label>
+          <select id="docm-eq"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Categoria</label>
+        <input type="text" id="docm-cat" maxlength="40" list="docm-cat-list" placeholder="ex: Cromatografia, Segurança, Boas práticas" autocomplete="off">
+        <datalist id="docm-cat-list"></datalist>
+        <p class="field-hint">Agrupa os documentos na listagem. Reaproveite uma categoria existente digitando o mesmo nome.</p>
+      </div>
+      <div class="field">
+        <label>Observação (opcional)</label>
+        <textarea id="docm-note" maxlength="300" rows="2" placeholder="ex: seção 4 traz o procedimento de limpeza com NaOH"></textarea>
+      </div>
+      <div id="docm-error" style="display:none"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger btn-sm" id="docm-del" style="display:none" onclick="deleteDoc()">
+        <svg class="ico ico-sm"><use href="#i-trash"/></svg> Excluir
+      </button>
+      <div class="spacer"></div>
+      <button class="btn" onclick="hide('doc-edit-modal')">Cancelar</button>
+      <button class="btn btn-primary" id="docm-save" onclick="saveDoc()">Salvar</button>
     </div>
   </div>
 </div>
@@ -891,6 +1010,7 @@ select option{background:var(--bg2);color:var(--text)}
             <div id="equil-on-info" style="display:none;background:var(--blue-light);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:12px;color:var(--blue-dark);line-height:1.5">
               <svg class="ico ico-sm"><use href="#i-moon"/></svg> A coluna fica bloqueada para outros usuários na noite anterior (17h–22h) e aparece no calendário nesse dia.
             </div>
+            <div id="col-docs-hint" style="display:none"></div>
             <div class="field">
               <label>Período da coluna</label>
               <div class="period-grid" id="col-period-grid">
@@ -1065,6 +1185,57 @@ select option{background:var(--bg2);color:var(--text)}
         <input type="number" id="eqm-maxdays" min="1" max="60" value="3">
         <p class="field-hint">Impede que a mesma pessoa ocupe o equipamento por muitos dias consecutivos. Use um número alto (ex: 60) para não aplicar limite.</p>
       </div>
+      <div class="form-section">Ficha técnica</div>
+      <p class="field-hint" style="margin-top:-4px">Aparece no detalhe do equipamento e na tela de reserva. Deixe em branco o que não se aplica.</p>
+      <div id="eqm-col-specs" style="display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="field">
+            <label>Volume da coluna (CV)</label>
+            <input type="text" id="eqm-sp-volume" maxlength="30" placeholder="ex: 120 mL">
+          </div>
+          <div class="field">
+            <label>Volume de amostra</label>
+            <input type="text" id="eqm-sp-sample" maxlength="30" placeholder="ex: 1–5 mL (0,4–4% CV)">
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field">
+          <label>Fluxo recomendado</label>
+          <input type="text" id="eqm-sp-flow" maxlength="30" placeholder="ex: 1 mL/min (máx 1,6)">
+        </div>
+        <div class="field">
+          <label>Pressão máxima</label>
+          <input type="text" id="eqm-sp-pressure" maxlength="30" placeholder="ex: 0,5 MPa">
+        </div>
+      </div>
+      <div class="field" id="eqm-storage-field">
+        <label>Solução de armazenamento</label>
+        <input type="text" id="eqm-sp-storage" maxlength="80" placeholder="ex: acetato de sódio 0,2 M em etanol 20%">
+      </div>
+      <div class="field">
+        <label>Observações técnicas</label>
+        <textarea id="eqm-sp-notes" maxlength="400" rows="2" placeholder="ex: protocolo de limpeza, cuidados, particularidades desta unidade"></textarea>
+      </div>
+      <div id="eqm-packing" style="display:none">
+        <div class="form-section">Empacotamento</div>
+        <p class="field-hint" style="margin-top:-4px">Para colunas empacotadas no laboratório. Este histórico não existe em manual nenhum.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="field">
+            <label>Empacotada em</label>
+            <input type="date" id="eqm-pk-date">
+          </div>
+          <div class="field">
+            <label>Por</label>
+            <input type="text" id="eqm-pk-by" maxlength="40" placeholder="nome de quem empacotou">
+          </div>
+        </div>
+        <div class="field">
+          <label>Teste de eficiência</label>
+          <input type="text" id="eqm-pk-test" maxlength="60" placeholder="ex: HETP 0,03 mm / assimetria 1,1">
+        </div>
+      </div>
+      <div class="form-section">Regras de uso</div>
       <div class="field" id="eqm-limit-field" style="display:none">
         <label>Limite de usos antes da limpeza</label>
         <input type="number" id="eqm-limit" min="1" max="999" value="10">
@@ -1416,6 +1587,7 @@ function startApp(){
     listenUsers();
     listenColCounters();
     listenEquipment();
+    listenDocs();
   }
   renderCalendar();
   populateFilters();
@@ -1495,6 +1667,7 @@ function switchTab(el){
   el.classList.add('active');
   const tab=el.dataset.tab;
   document.getElementById('panel-'+tab).classList.add('active');
+  if(tab==='docs')renderDocs();
   if(tab==='reservas')renderReservas();
   if(tab==='equipamentos')renderEquipamentos();
   if(tab==='admin')renderAdmin();
@@ -1838,8 +2011,28 @@ function onEqChange(preCol, preColPeriod){
   }
 }
 
+// Mostra a ficha e os manuais da coluna escolhida, ali na hora de reservar
+function mostrarDicaColuna(colId){
+  const box=document.getElementById('col-docs-hint');
+  if(!box) return;
+  const e=eqById(colId);
+  if(!colId||colId==='_cromatografia'||!e){ box.style.display='none'; box.innerHTML=''; return; }
+  const sp=e.spec||{};
+  const chips=[['Vol.',sp.volume],['Amostra',sp.sample],['Fluxo',sp.flow],['Pressão',sp.pressure]]
+    .filter(x=>x[1]).map(([l,v])=>`<span class="col-chip"><b>${l}</b> ${esc(v)}</span>`).join('');
+  const ds=docsDoEquipamento(colId).slice(0,3);
+  const links=ds.map(d=>{
+    const u=urlSegura(d.url);
+    return u?`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" class="col-doc-link">${ico(docKind(d.kind).ico,'ico-xs')} ${esc(d.title)}</a>`:'';
+  }).join('');
+  if(!chips&&!links){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML=`${chips?`<div class="col-chips">${chips}</div>`:''}${links?`<div class="col-docs">${links}</div>`:''}`;
+  box.style.display='block';
+}
+
 function onColChange(preColPeriod){
   const col=document.getElementById('bk-col').value;
+  mostrarDicaColuna(col);
   const sec=document.getElementById('col-period-section');
   // Only show period section for real columns, not special options
   sec.style.display=(col&&col!=='_cromatografia')?'block':'none';
@@ -2495,6 +2688,195 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 });
 
+
+// ═══════════════════════════════════════════════════
+// DOCUMENTAÇÃO
+// Guardamos apenas o link. Os arquivos ficam no Drive do laboratório
+// ou no site do fabricante — anexar arquivo no Firebase exigiria o
+// plano pago. O modelo já prevê um campo de anexo para o futuro.
+// ═══════════════════════════════════════════════════
+let docs=[];
+const DOC_KINDS={
+  manual:{label:'Manual do fabricante', ico:'book'},
+  protocolo:{label:'Protocolo interno', ico:'list'},
+  seguranca:{label:'Ficha de segurança', ico:'shield'},
+  video:{label:'Vídeo / treinamento', ico:'play'},
+  planilha:{label:'Planilha / modelo', ico:'table'},
+  artigo:{label:'Artigo / referência', ico:'file'},
+  outro:{label:'Outro', ico:'file'},
+};
+const docKind=k=>DOC_KINDS[k]||DOC_KINDS.outro;
+
+function listenDocs(){
+  _unsubs.push(db.collection('docs').onSnapshot(snap=>{
+    docs=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(document.getElementById('panel-docs')?.classList.contains('active')) renderDocs();
+    if(document.getElementById('eq-detail')?.style.display!=='none' && detailEqId) renderEqDocs();
+  }, err=>console.error('docs listener:',err)));
+}
+
+function docsDoEquipamento(eqId){
+  return docs.filter(d=>d.equipmentId===eqId)
+             .sort((a,b)=>String(a.title).localeCompare(String(b.title),'pt'));
+}
+
+// Link seguro: só http(s), evita javascript: em campo de URL
+function urlSegura(u){
+  const s=String(u||'').trim();
+  return /^https?:\/\//i.test(s) ? s : null;
+}
+
+function docLinha(d){
+  const k=docKind(d.kind);
+  const url=urlSegura(d.url);
+  const eqNome=d.equipmentId?eqNameEsc(d.equipmentId):'';
+  const conteudo=`
+    <span class="doc-ico">${ico(k.ico)}</span>
+    <span class="doc-main">
+      <span class="doc-title">${esc(d.title)}</span>
+      <span class="doc-meta">${k.label}${eqNome?' · '+eqNome:''}${d.note?' · '+esc(d.note):''}</span>
+    </span>
+    ${url?`<span class="doc-open">${ico('link','ico-sm')}</span>`:''}`;
+  const admin=currentUser?.isAdmin
+    ? `<button class="btn btn-sm doc-edit" aria-label="Editar ${esc(d.title)}" onclick="event.preventDefault();event.stopPropagation();openDocEdit('${d.id}')">${ico('pencil','ico-xs')}</button>`
+    : '';
+  return url
+    ? `<div class="doc-row"><a class="doc-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${conteudo}</a>${admin}</div>`
+    : `<div class="doc-row"><span class="doc-link doc-broken" title="Link inválido">${conteudo}</span>${admin}</div>`;
+}
+
+function renderDocs(){
+  const el=document.getElementById('docs-list');
+  if(!el) return;
+  document.getElementById('doc-add-btn').style.display=currentUser?.isAdmin?'inline-flex':'none';
+
+  // filtro de tipos
+  const fk=document.getElementById('doc-filter-kind');
+  if(fk && fk.options.length<=1){
+    Object.entries(DOC_KINDS).forEach(([k,v])=>{
+      const o=document.createElement('option'); o.value=k; o.textContent=v.label; fk.appendChild(o);
+    });
+  }
+  const termo=(document.getElementById('doc-search')?.value||'').toLowerCase().trim();
+  const tipo=fk?.value||'';
+
+  let lista=docs.filter(d=>{
+    if(tipo && d.kind!==tipo) return false;
+    if(!termo) return true;
+    const alvo=[d.title,d.note,d.category,eqName(d.equipmentId||'')].join(' ').toLowerCase();
+    return alvo.includes(termo);
+  });
+
+  if(!docs.length){
+    el.innerHTML=`<div class="empty-state">
+      <svg class="bf bf-xs"><use href="#m-buffer-sleep"/></svg>
+      Nenhum documento cadastrado ainda.
+      ${currentUser?.isAdmin?'<br>Use o botão Adicionar para cadastrar o primeiro manual.':''}
+    </div>`;
+    return;
+  }
+  if(!lista.length){ el.innerHTML='<div class="empty-state">Nenhum documento encontrado para essa busca.</div>'; return; }
+
+  // agrupa por categoria, mantendo "Sem categoria" por último
+  const grupos={};
+  lista.forEach(d=>{ const g=(d.category||'').trim()||'Sem categoria'; (grupos[g]=grupos[g]||[]).push(d); });
+  const nomes=Object.keys(grupos).sort((a,b)=>
+    a==='Sem categoria'?1:b==='Sem categoria'?-1:a.localeCompare(b,'pt'));
+
+  el.innerHTML=nomes.map(g=>`
+    <div class="doc-group">
+      <div class="doc-group-head">${esc(g)} <span>${grupos[g].length}</span></div>
+      <div class="list-group">${grupos[g]
+        .sort((a,b)=>String(a.title).localeCompare(String(b.title),'pt'))
+        .map(docLinha).join('')}</div>
+    </div>`).join('');
+}
+
+// Documentos dentro do detalhe do equipamento
+function renderEqDocs(){
+  const box=document.getElementById('eq-detail-docs');
+  if(!box) return;
+  const lista=docsDoEquipamento(detailEqId);
+  box.innerHTML=lista.length
+    ? `<div class="eq-detail-section">Documentos</div><div class="list-group">${lista.map(docLinha).join('')}</div>`
+    : '';
+}
+
+// ── Cadastro ──
+function hideDocEdit(){ hide('doc-edit-modal'); }
+
+function openDocEdit(id){
+  if(!currentUser?.isAdmin) return;
+  const d=id?docs.find(x=>x.id===id):null;
+  document.getElementById('docm-title').textContent=d?'Editar documento':'Novo documento';
+  document.getElementById('docm-id').value=d?d.id:'';
+  document.getElementById('docm-title-input').value=d?d.title:'';
+  document.getElementById('docm-url').value=d?d.url:'';
+  document.getElementById('docm-kind').value=d?.kind||'manual';
+  document.getElementById('docm-cat').value=d?.category||'';
+  document.getElementById('docm-note').value=d?.note||'';
+  document.getElementById('docm-error').style.display='none';
+  document.getElementById('docm-del').style.display=d?'inline-flex':'none';
+
+  // equipamentos e categorias já usadas
+  const s=document.getElementById('docm-eq');
+  s.innerHTML='<option value="">Nenhum (documento geral)</option>'+
+    eqActive().map(e=>`<option value="${e.id}"${d&&d.equipmentId===e.id?' selected':''}>${esc(e.name)}</option>`).join('');
+  const dl=document.getElementById('docm-cat-list');
+  const cats=[...new Set(docs.map(x=>(x.category||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
+  dl.innerHTML=cats.map(x=>`<option value="${esc(x)}"></option>`).join('');
+
+  show('doc-edit-modal');
+  setTimeout(()=>document.getElementById('docm-title-input').focus(),60);
+}
+
+function docError(msg){
+  const el=document.getElementById('docm-error');
+  el.innerHTML=`<div class="alert alert-danger">${ico('warn','ico-sm')} ${msg}</div>`;
+  el.style.display='block';
+}
+
+async function saveDoc(){
+  const id=document.getElementById('docm-id').value;
+  const title=document.getElementById('docm-title-input').value.trim();
+  const url=document.getElementById('docm-url').value.trim();
+  const kind=document.getElementById('docm-kind').value;
+  const equipmentId=document.getElementById('docm-eq').value||null;
+  const category=document.getElementById('docm-cat').value.trim();
+  const note=document.getElementById('docm-note').value.trim();
+
+  if(title.length<3) return docError('Informe um título com pelo menos 3 caracteres.');
+  if(!urlSegura(url)) return docError('O link precisa começar com http:// ou https://');
+
+  const btn=document.getElementById('docm-save');
+  btn.textContent='Salvando...'; btn.disabled=true;
+  try{
+    const data={title,url,kind,equipmentId,category:category||null,note:note||null,
+                updatedAt:new Date().toISOString()};
+    if(id){
+      await withTimeout(db.collection('docs').doc(id).update(data),10000,'salvar o documento');
+    }else{
+      data.addedBy=currentUser.name; data.createdAt=new Date().toISOString();
+      await withTimeout(db.collection('docs').add(data),10000,'criar o documento');
+    }
+    hide('doc-edit-modal');
+    toast(id?'Documento atualizado':'Documento adicionado');
+  }catch(err){ docError('Erro: '+errMsg(err)); }
+  finally{ btn.textContent='Salvar'; btn.disabled=false; }
+}
+
+async function deleteDoc(){
+  const id=document.getElementById('docm-id').value;
+  const d=docs.find(x=>x.id===id);
+  if(!d) return;
+  if(!confirm(`Excluir "${d.title}"?\n\nO arquivo em si não é apagado — só o link sai do sistema.`)) return;
+  try{
+    await withTimeout(db.collection('docs').doc(id).delete(),10000,'excluir o documento');
+    hide('doc-edit-modal');
+    toast('Documento removido','trash');
+  }catch(err){ docError('Erro: '+errMsg(err)); }
+}
+
 // ═══════════════════════════════════════════════════
 // ADMIN — GESTÃO DE EQUIPAMENTOS
 // ═══════════════════════════════════════════════════
@@ -2568,6 +2950,16 @@ function openEqEdit(id){
   document.getElementById('eqm-cat').value=e?e.cat:'akta';
   document.getElementById('eqm-limit').value=e?.colLimit||10;
   document.getElementById('eqm-maxdays').value=e?.maxDays||DEFAULT_MAX_DAYS;
+  const sp=e?.spec||{}, pk=e?.packing||{};
+  document.getElementById('eqm-sp-volume').value=sp.volume||'';
+  document.getElementById('eqm-sp-sample').value=sp.sample||'';
+  document.getElementById('eqm-sp-flow').value=sp.flow||'';
+  document.getElementById('eqm-sp-pressure').value=sp.pressure||'';
+  document.getElementById('eqm-sp-storage').value=sp.storage||'';
+  document.getElementById('eqm-sp-notes').value=sp.notes||'';
+  document.getElementById('eqm-pk-date').value=pk.date||'';
+  document.getElementById('eqm-pk-by').value=pk.by||'';
+  document.getElementById('eqm-pk-test').value=pk.test||'';
   document.getElementById('eqm-shaker').checked=!!e?.isShaker;
   document.getElementById('eqm-active').checked=e?e.active!==false:true;
   document.getElementById('eqm-error').style.display='none';
@@ -2579,8 +2971,11 @@ function openEqEdit(id){
 
 function onEqmCatChange(){
   const cat=document.getElementById('eqm-cat').value;
-  document.getElementById('eqm-limit-field').style.display=cat==='coluna'?'flex':'none';
+  const col=cat==='coluna';
+  document.getElementById('eqm-limit-field').style.display=col?'flex':'none';
   document.getElementById('eqm-shaker-field').style.display=cat==='outro'?'flex':'none';
+  document.getElementById('eqm-col-specs').style.display=col?'block':'none';
+  document.getElementById('eqm-packing').style.display=col?'block':'none';
 }
 
 function eqmError(msg){
@@ -2605,7 +3000,12 @@ async function saveEqEdit(){
   const btn=document.getElementById('eqm-save');
   btn.textContent='Salvando...'; btn.disabled=true;
   try{
-    const data={name, cat, active, maxDays};
+    const v=id=>(document.getElementById(id).value||'').trim();
+    const data={name, cat, active, maxDays,
+      spec:{volume:v('eqm-sp-volume')||null, sample:v('eqm-sp-sample')||null, flow:v('eqm-sp-flow')||null,
+            pressure:v('eqm-sp-pressure')||null, storage:v('eqm-sp-storage')||null, notes:v('eqm-sp-notes')||null},
+      packing:(cat==='coluna')?{date:v('eqm-pk-date')||null, by:v('eqm-pk-by')||null, test:v('eqm-pk-test')||null}:null
+    };
     if(cat==='coluna') data.colLimit=limit; else data.colLimit=null;
     data.isShaker=(cat==='outro')?isShaker:false;
 
@@ -3128,7 +3528,32 @@ function openEqDetail(eqId){
     html += '</div>';
   }
 
+  // Ficha técnica
+  const sp=e.spec||{}, pk=e.packing||{};
+  const celulas=[
+    ['Volume da coluna', sp.volume],
+    ['Volume de amostra', sp.sample],
+    ['Fluxo recomendado', sp.flow],
+    ['Pressão máxima', sp.pressure],
+  ].filter(x=>x[1]);
+  let ficha='';
+  if(celulas.length||sp.storage||sp.notes){
+    ficha=`<div class="eq-detail-section">Ficha técnica</div><div class="spec-grid">`+
+      celulas.map(([l,v])=>`<div class="spec-cell"><span class="spec-label">${l}</span><span class="spec-val">${esc(v)}</span></div>`).join('')+
+      (sp.storage?`<div class="spec-cell full"><span class="spec-label">Armazenamento</span><span class="spec-val">${esc(sp.storage)}</span></div>`:'')+
+      (sp.notes?`<div class="spec-cell full"><span class="spec-label">Observações</span><span class="spec-val" style="font-weight:400">${esc(sp.notes)}</span></div>`:'')+
+    `</div>`;
+  }
+  if(isCol&&(pk.date||pk.by||pk.test)){
+    ficha+=`<div class="eq-detail-section">Empacotamento</div><div class="spec-grid">`+
+      (pk.date?`<div class="spec-cell"><span class="spec-label">Empacotada em</span><span class="spec-val">${fmtBR(pk.date)}</span></div>`:'')+
+      (pk.by?`<div class="spec-cell"><span class="spec-label">Por</span><span class="spec-val">${esc(pk.by)}</span></div>`:'')+
+      (pk.test?`<div class="spec-cell full"><span class="spec-label">Teste de eficiência</span><span class="spec-val">${esc(pk.test)}</span></div>`:'')+
+    `</div>`;
+  }
+  html += ficha + '<div id="eq-detail-docs"></div>';
   document.getElementById('eq-detail-body').innerHTML = html;
+  renderEqDocs();
   document.getElementById('eq-detail-reserve-btn').onclick = ()=>{ closeEqDetail(); openNewForEq(eqId); };
   document.getElementById('eq-detail').style.display='flex';
 }
