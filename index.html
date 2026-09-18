@@ -617,11 +617,6 @@ select option{background:var(--bg2);color:var(--text)}
       <p style="font-size:11px;color:var(--text3);margin-top:16px;text-align:center">Use sua conta Gmail ou e-mail institucional (@usp.br)</p>
     </div>
 
-    <div id="auth-signup-mode" style="display:none"></div>
-    <div id="auth-reset-mode" style="display:none"></div>
-    <div id="signup-error" style="display:none"></div>
-    <div id="reset-error" style="display:none"></div>
-
     <p style="font-size:11px;color:var(--text3);margin-top:16px;text-align:center">Acesso restrito a membros do laboratório.</p>
   </div>
 </div>
@@ -938,10 +933,9 @@ select option{background:var(--bg2);color:var(--text)}
         </div>
       </div>
       <div class="form-section">Quando</div>
-      <div class="field">
+      <div class="field" id="bk-date-field">
         <label>Data</label>
-        <input type="text" id="bk-date-display" readonly style="background:var(--bg2);cursor:default">
-        <input type="hidden" id="bk-date">
+        <input type="date" id="bk-date" onchange="onDateChange()">
       </div>
       <div class="field">
         <label>Período</label>
@@ -969,8 +963,8 @@ select option{background:var(--bg2);color:var(--text)}
         <div class="field">
           <label>Início da expressão (data e hora)</label>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input type="date" id="bk-shaker-start-date" style="flex:1;min-width:130px" oninput="calcExpDuration()">
-            <input type="time" id="bk-shaker-start-time" value="09:00" style="width:110px" oninput="calcExpDuration()">
+            <input type="date" id="bk-shaker-start-date" style="flex:1;min-width:130px" onchange="onShakerStartChange()">
+            <input type="time" id="bk-shaker-start-time" value="09:00" style="width:110px" onchange="calcExpDuration()">
           </div>
         </div>
       </div>
@@ -1509,20 +1503,10 @@ async function confirmName(){
   }
 }
 
-function switchAuthMode(mode){
-  const safeHide=id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; };
-  const safeShow=id=>{ const el=document.getElementById(id); if(el) el.style.display='block'; };
-  const safeErr=id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; };
-  safeHide('auth-login-mode'); safeHide('auth-signup-mode'); safeHide('auth-reset-mode');
-  safeErr('auth-error'); safeErr('signup-error'); safeErr('reset-error');
-  if(mode==='login') safeShow('auth-login-mode');
-  if(mode==='signup') safeShow('auth-signup-mode');
-  if(mode==='reset') safeShow('auth-reset-mode');
-}
-
 function showLogin(){
   show('login-screen');
-  switchAuthMode('login');
+  const el=document.getElementById('auth-error');
+  if(el) el.style.display='none';
 }
 
 function authErrorMessage(err){
@@ -1555,22 +1539,6 @@ async function signInGoogle(){
     if(err.code!=='auth/popup-closed-by-user'){
       showEl('auth-error', `<div class="alert alert-danger">${authErrorMessage(err)}</div>`);
     }
-  }
-}
-
-// signInEmail: not used (Google-only auth)
-
-// signUpEmail: not used (Google-only auth)
-
-async function sendResetEmail(){
-  const email=document.getElementById('reset-email').value.trim();
-  document.getElementById('reset-error').style.display='none';
-  if(!email){ showEl('reset-error',`<div class="alert alert-danger">${ico('warn','ico-sm')} Informe seu e-mail.</div>`); return; }
-  try{
-    await auth.sendPasswordResetEmail(email);
-    showEl('reset-error',`<div class="alert alert-success">${ico('check','ico-sm')} Link enviado! Verifique seu e-mail.</div>`);
-  }catch(err){
-    showEl('reset-error', `<div class="alert alert-danger">${authErrorMessage(err)}</div>`);
   }
 }
 
@@ -1799,7 +1767,7 @@ function openNew(date){
   const sts=document.getElementById('shaker-time-section'); if(sts) sts.style.display='none';
   const d=date||fmtDate(new Date());
   document.getElementById('bk-date').value=d;
-  document.getElementById('bk-date-display').value=fmtBR(d);
+
   document.querySelectorAll('.period-pill').forEach(p=>p.classList.remove('sel'));
   document.getElementById('custom-time').style.display='none';
   document.getElementById('multiday-dates').style.display='none';
@@ -1844,7 +1812,7 @@ function openEdit(id){
   document.getElementById('del-btn').style.display='block';
   document.getElementById('conflict-alert').style.display='none';
   document.getElementById('bk-date').value=b.date;
-  document.getElementById('bk-date-display').value=fmtBR(b.date);
+
   document.querySelectorAll('.period-pill').forEach(p=>{
     p.classList.toggle('sel',p.dataset.p===b.period);
   });
@@ -1942,8 +1910,13 @@ function toggleOvernight(cb){
 function calcExpDuration(){
   const label=document.getElementById('exp-duration-label');
   if(!label)return;
-  const startDate=document.getElementById('bk-date')?.value;
-  const startTime=document.getElementById('bk-start')?.value;
+  const ehShaker=isShakerEq(document.getElementById('bk-eq')?.value);
+  const startDate=ehShaker
+    ? document.getElementById('bk-shaker-start-date')?.value
+    : document.getElementById('bk-date')?.value;
+  const startTime=ehShaker
+    ? document.getElementById('bk-shaker-start-time')?.value
+    : document.getElementById('bk-start')?.value;
   const endDate=document.getElementById('bk-enddate')?.value;
   const endTime=document.getElementById('bk-endtime')?.value;
   if(!startDate||!startTime||!endDate||!endTime){label.textContent='';return;}
@@ -1961,8 +1934,10 @@ function calcExpDuration(){
 function checkShakerCapacity(){
   const eq=document.getElementById('bk-eq')?.value;
   const vol=parseFloat(document.getElementById('bk-volume')?.value)||0;
-  const date=document.getElementById('bk-date')?.value;
-  if(!eq||!date||!isShakerEq(eq))return;
+  if(!eq||!isShakerEq(eq))return;
+  const date=document.getElementById('bk-shaker-start-date')?.value
+          || document.getElementById('bk-date')?.value;
+  if(!date)return;
   const bar=document.getElementById('shaker-capacity-bar');
   if(!bar)return;
   // Find other bookings for this shaker on this date/period
@@ -1970,17 +1945,43 @@ function checkShakerCapacity(){
   const usedVol=existing.reduce((sum,b)=>sum+(parseFloat(b.shakerVolume)||0),0);
   const total=usedVol+vol;
   const pct=Math.min(100,(total/8)*100);
-  bar.style.display='block';
-  document.getElementById('shaker-cap-text').textContent=`${total.toFixed(1)} / 8L`;
+  const txt=document.getElementById('shaker-cap-text');
   const fill=document.getElementById('shaker-cap-fill');
+  if(!txt||!fill)return;
+  bar.style.display='block';
+  txt.textContent=`${total.toFixed(1)} / 8L`;
   fill.style.width=pct+'%';
   fill.style.background=total>8?'var(--red)':total>6?'var(--amber)':'var(--blue)';
   const usersEl=document.getElementById('shaker-cap-users');
+  if(!usersEl)return;
   if(existing.length){
     usersEl.textContent='Já reservado: '+existing.map(b=>`${esc(b.user)} (${b.shakerVolume||'?'}L)`).join(', ');
   } else {
     usersEl.textContent='Nenhuma outra reserva neste período';
   }
+}
+
+// A data principal mudou: mantém o shaker em sincronia e revalida
+function onDateChange(){
+  const d=document.getElementById('bk-date').value;
+  const ssd=document.getElementById('bk-shaker-start-date');
+  if(ssd&&isShakerEq(document.getElementById('bk-eq').value)) ssd.value=d;
+  const ed=document.getElementById('bk-enddate');
+  if(ed&&(!ed.value||ed.value<d)) ed.value=d;
+  checkShakerCapacity();
+  calcExpDuration();
+  mostrarDicaColuna(document.getElementById('bk-col')?.value);
+}
+
+// Para shakers, o início da expressão é a própria data da reserva
+function onShakerStartChange(){
+  const v=document.getElementById('bk-shaker-start-date').value;
+  if(!v) return;
+  document.getElementById('bk-date').value=v;
+  const ed=document.getElementById('bk-enddate');
+  if(ed&&(!ed.value||ed.value<v)) ed.value=v;
+  checkShakerCapacity();
+  calcExpDuration();
 }
 
 function onEqChange(preCol, preColPeriod){
@@ -1995,13 +1996,16 @@ function onEqChange(preCol, preColPeriod){
   const sts=document.getElementById('shaker-time-section');
   if(pg) pg.style.display=isShaker?'none':'flex';
   if(sts) sts.style.display=isShaker?'block':'none';
+  // Para shaker, o campo "Data" some: quem manda é o início da expressão
+  const df=document.getElementById('bk-date-field');
+  if(df) df.style.display=isShaker?'none':'';
   if(isShaker){
-    // Pre-fill shaker start date from booking date
     const d=document.getElementById('bk-date')?.value;
     const ssd=document.getElementById('bk-shaker-start-date');
-    if(d&&ssd&&!ssd.value) ssd.value=d;
-    selectedPeriod='custom'; // treat shaker as custom period
-    setTimeout(checkShakerCapacity, 50);
+    if(ssd&&!ssd.value&&d) ssd.value=d;
+    if(ssd&&ssd.value) document.getElementById('bk-date').value=ssd.value;
+    selectedPeriod='custom'; // shaker é sempre horário específico
+    setTimeout(()=>{ checkShakerCapacity(); calcExpDuration(); }, 50);
   }
   if(isAkta){
     const cs=document.getElementById('bk-col');
@@ -2481,11 +2485,6 @@ function closeModal(){
   _pedidoAutorizado=false; excedeLimite=null; _justificativa='';
   hide('booking-modal');
   editingId=null; selectedPeriod=null; selectedColPeriod=null; bookingType='experimento';
-  // Reset date field to readonly display mode
-  const picker=document.getElementById('bk-date-picker');
-  const disp=document.getElementById('bk-date-display');
-  if(picker){ picker.style.display='none'; }
-  if(disp){ disp.style.display=''; }
 }
 
 // ═══════════════════════════════════════════════════
@@ -3564,35 +3563,11 @@ function closeEqDetail(){
 }
 
 function openNewForEq(eqId){
-  openNew(null); // null = today, but unlocked
-  // Pre-select the equipment after modal renders
+  openNew(null);
   setTimeout(()=>{
     const sel=document.getElementById('bk-eq');
     sel.value=eqId;
     onEqChange();
-    // Unlock the date field so user can pick any day
-    const dateDisp=document.getElementById('bk-date-display');
-    const dateRaw=document.getElementById('bk-date');
-    if(dateDisp){
-      // Replace readonly display with an actual date input
-      const wrapper=dateDisp.parentNode;
-      dateDisp.style.display='none';
-      let picker=document.getElementById('bk-date-picker');
-      if(!picker){
-        picker=document.createElement('input');
-        picker.type='date';
-        picker.id='bk-date-picker';
-        picker.style.width='100%';
-        picker.onchange=function(){
-          dateRaw.value=this.value;
-          dateDisp.value=fmtBR(this.value);
-          checkShakerCapacity();
-        };
-        wrapper.insertBefore(picker,dateDisp);
-      }
-      picker.value=dateRaw.value;
-      picker.style.display='block';
-    }
   },50);
 }
 
