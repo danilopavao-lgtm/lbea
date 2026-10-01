@@ -12,12 +12,18 @@
 <meta name="format-detection" content="telephone=no">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23378ADD'/><g fill='none' stroke='white' stroke-width='1.6' stroke-linejoin='round'><path d='M16 6.5 22 11.5 23.2 19.5 19.2 24h-6.4L8.8 19.5 10 11.5Z'/><path d='M16 6.5 12.8 24M16 6.5 19.2 24M10 11.5h12M8.8 19.5h14.4'/></g></svg>">
 <title>LBEA Reservas</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23378ADD'/><text y='72' x='50' text-anchor='middle' font-family='system-ui' font-weight='800' font-size='52' fill='white'>LB</text></svg>">
 
-<!-- Firebase SDKs -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<!-- Começa a resolver DNS e TLS destes domínios enquanto o HTML é lido -->
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+<link rel="dns-prefetch" href="https://www.gstatic.com">
+
+<!-- SDKs do Firebase com 'defer': a página desenha primeiro, os scripts
+     executam depois, na ordem. Sem isso a tela fica branca até baixarem. -->
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 
 <style>
 :root {
@@ -612,7 +618,7 @@ select option{background:var(--bg2);color:var(--text)}
     <span style="font-size:18px;font-weight:700">LBEA Reservas</span>
   </div>
   <svg class="bf bf-sm bf-float" style="margin:4px 0"><use href="#m-buffer"/></svg>
-  <div style="display:flex;align-items:center;gap:8px;color:#888;font-size:13px">
+  <div id="loading-msg" style="display:flex;align-items:center;gap:8px;color:#888;font-size:13px">
     <div style="width:16px;height:16px;border:2px solid rgba(128,128,128,.25);border-top-color:#378ADD;border-radius:50%;animation:spin .7s linear infinite"></div>
     Verificando login...
   </div>
@@ -1438,15 +1444,35 @@ const FIREBASE_CONFIG = {
   appId: "1:976950450103:web:0721d8c832fb6958ce7a32"
 };
 
+// Se a autenticação não responder, mostra saída em vez de girar para sempre
+let _vigiaCarregamento=null;
+function iniciarVigiaDeCarregamento(){
+  cancelarVigiaDeCarregamento();
+  _vigiaCarregamento=setTimeout(()=>{
+    const tela=document.getElementById('loading-screen');
+    if(!tela||tela.style.display==='none')return;
+    const msg=tela.querySelector('#loading-msg');
+    if(msg) msg.innerHTML=
+      `<div style="text-align:center;line-height:1.6">
+         ${navigator.onLine?'A conexão está demorando mais que o normal.':'Sem conexão com a internet.'}<br>
+         <button class="btn btn-sm" style="margin-top:10px" onclick="location.reload()">Tentar de novo</button>
+       </div>`;
+  },12000);
+}
+function cancelarVigiaDeCarregamento(){
+  if(_vigiaCarregamento){ clearTimeout(_vigiaCarregamento); _vigiaCarregamento=null; }
+}
+
 window.onload = async function(){
   try {
     if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
 
     db = firebase.firestore();
     auth = firebase.auth();
-    await db.collection('users').limit(1).get();
-    // Listen for auth state changes — this drives the whole app
+    iniciarVigiaDeCarregamento();
+    // O estado de autenticação é o que conduz o aplicativo
     auth.onAuthStateChanged(async (user)=>{
+      cancelarVigiaDeCarregamento();
       hide('loading-screen');
       if(user){
         firebaseUser = user;
@@ -2231,6 +2257,26 @@ function equilSlot(b){
   return first?{date:prevDay(first), period:'noite', col:b.comboColumn}:null;
 }
 
+// Rótulo do período, em um lugar só. Antes estava copiado em cinco funções.
+const PERIODOS={manha:'Manhã',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',
+                multidias:'Mais de um dia',custom:'Horário esp.'};
+
+// Como mostrar o período de uma reserva ao usuário.
+// Reserva que atravessa dias precisa mostrar o intervalo real, e não a
+// faixa de horário de um dia — era o que fazia uma expressão de quatro
+// dias aparecer como "09:00–12:00".
+function rotuloPeriodo(b){
+  const dias=datasDaReserva(b);
+  if(dias.length>1){
+    const ini=dias[0], fim=dias[dias.length-1];
+    const h1=b.startTime?' '+b.startTime:'';
+    const h2=(isShakerEq(b.equipment)&&b.shakerEndTime)?' '+b.shakerEndTime:(b.endTime?' '+b.endTime:'');
+    return `${fmtBR(ini)}${h1} → ${fmtBR(fim)}${h2} · ${dias.length} dias`;
+  }
+  if(b.period==='custom'&&b.startTime&&b.endTime) return `${b.startTime}–${b.endTime}`;
+  return PERIODOS[b.period]||b.period||'';
+}
+
 function getEffectiveDates(period, mainDate, dateStart, dateEnd){
   return period==='multidias' ? dateRange(dateStart,dateEnd) : [mainDate];
 }
@@ -2445,8 +2491,15 @@ async function saveBooking(){
   const shakerTempChange=shakerOvernight?document.getElementById('bk-tempchange').value||null:null;
   const e=eqById(eq);
   const col=(e&&e.cat==='akta')?document.getElementById('bk-col').value||null:null;
-  const st=document.getElementById('bk-start').value;
-  const en=document.getElementById('bk-end').value;
+  // Para shaker, início e fim vêm dos campos da expressão. Antes o fim
+  // vinha de 'bk-end', campo que fica oculto nesse caso — e a reserva
+  // ficava gravada como 09:00–12:00 mesmo durando dias.
+  const st=isShaker
+    ? (document.getElementById('bk-shaker-start-time')?.value||'09:00')
+    : document.getElementById('bk-start').value;
+  const en=isShaker
+    ? (document.getElementById('bk-endtime')?.value||'09:00')
+    : document.getElementById('bk-end').value;
   const dateStart=document.getElementById('bk-date-start').value;
   const dateEnd=document.getElementById('bk-date-end').value;
   const colDateStart=document.getElementById('bk-col-date-start').value;
@@ -2675,7 +2728,6 @@ function renderReservas(){
     list.innerHTML=`<div class="empty"><svg class="bf bf-xs" style="margin:0 auto 8px;opacity:.85"><use href="#m-buffer-sleep"/></svg><p>Nenhuma reserva encontrada${filterDesc}</p><p style="font-size:12px;margin-top:4px">Tente mudar os filtros ou <a href="#" onclick="event.preventDefault();switchTabById('calendar')">veja o calendário</a></p></div>`;
     return;
   }
-  const pl={manha:'Manhã',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário esp.'};
   list.innerHTML=bks.map(b=>{
     const e=eqById(b.equipment);
     const cat=e?e.cat:'outro';
@@ -2683,12 +2735,12 @@ function renderReservas(){
     let time;
     if(b.period==='custom') time=`${b.startTime}–${b.endTime}`;
     else if(b.period==='multidias'&&b.dateStart&&b.dateEnd) time=`${fmtBR(b.dateStart)} até ${fmtBR(b.dateEnd)}`;
-    else time=pl[b.period]||b.period;
+    else time=rotuloPeriodo(b);
     let colTime='';
     if(b.comboColumn&&b.colPeriod&&b.colPeriod!=='mesmo'){
       if(b.colPeriod==='multidias'&&b.colDateStart&&b.colDateEnd)
         colTime=` · Coluna: ${fmtBR(b.colDateStart)}–${fmtBR(b.colDateEnd)}`;
-      else colTime=` · Coluna: ${pl[b.colPeriod]||b.colPeriod}`;
+      else colTime=` · Coluna: ${PERIODOS[b.colPeriod]||b.colPeriod}`;
     }
     const isManut=b.bookingType==='manutencao';
     const estadoCls=b.rejected?' is-rejected':(b.pending?' is-pending':'');
@@ -3428,7 +3480,6 @@ function renderAdminUsers(){
 function renderAdminBookings(){
   const list=document.getElementById('admin-reservas-list');
   const bks=[...bookings].sort((a,b)=>b.date.localeCompare(a.date));
-  const pl={manha:'Manhã',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário esp.'};
   if(!bks.length){list.innerHTML=`<div class="empty-state"><svg class="bf bf-xs"><use href="#m-buffer-sleep"/></svg>Nenhuma reserva registrada.</div>`;return;}
   list.innerHTML=bks.map(b=>{
     const e=eqById(b.equipment);
@@ -3439,7 +3490,7 @@ function renderAdminBookings(){
         ${b.comboColumn?`<span class="badge badge-col" style="font-size:10px">+ ${eqNameEsc(b.comboColumn)}</span>`:''}
         <span class="ri-date">${fmtBR(b.date)}</span>
       </div>
-      <div class="ri-info">${svgUser()} ${esc(b.user)} · ${pl[b.period]||b.period}</div>
+      <div class="ri-info">${svgUser()} ${esc(b.user)} · ${rotuloPeriodo(b)}</div>
     </div>`;
   }).join('');
 }
@@ -3488,7 +3539,6 @@ async function revokeAccess(uid, name){
 // CSV EXPORT
 // ═══════════════════════════════════════════════════
 function exportCSV(){
-  const pl={manha:'Manha',tarde:'Tarde',noite:'Noite',custom:'Horario especifico'};
   const rows=[['Data','Tipo','Equipamento','Coluna vinculada','Usuario principal','Segundo usuario','Instituicao','Proteina/Amostra','Erlens','Volume(L)','Temp.inicial(C)','Overnight','Temp.overnight(C)','Troca de temp','Data fim expressao','Hora fim expressao','Periodo','Hora inicio','Hora fim','Observacoes']];
   const bks=[...bookings].sort((a,b)=>a.date.localeCompare(b.date));
   bks.forEach(b=>{
@@ -3509,7 +3559,7 @@ function exportCSV(){
       b.shakerTempChange||'',
       b.shakerEndDate||'',
       b.shakerEndTime||'',
-      pl[b.period]||b.period,
+      rotuloPeriodo(b),
       b.period==='custom'?b.startTime:'',
       b.period==='custom'?b.endTime:'',
       b.notes||''
@@ -3553,7 +3603,6 @@ function openDayPopup(ds){
   dayPopupDate = ds;
   const bks = bksForDate(ds);
   document.getElementById('day-popup-title').textContent = `${fmtBR(ds)} — ${bks.length} reserva${bks.length!==1?'s':''}`;
-  const pl={manha:'Manhã',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário esp.'};
   const body = document.getElementById('day-popup-body');
   if(!bks.length){
     body.innerHTML='<div class="day-popup-empty">Nenhuma reserva neste dia.</div>';
@@ -3561,7 +3610,7 @@ function openDayPopup(ds){
     body.innerHTML = bks.map(b=>{
       const e=eqById(b.equipment);
       const cat=e?e.cat:'outro';
-      const time=b.period==='custom'?`${b.startTime}–${b.endTime}`:pl[b.period]||b.period;
+      const time=rotuloPeriodo(b);
       return `<div class="day-bk-item" onclick="closeDayPopup();openEdit('${b.id}')">
         <div class="day-bk-top">
           ${b.bookingType==='manutencao'?`<span class="badge badge-manut">${ico('wrench','ico-xs')} Manutenção</span>`:''}
@@ -3603,7 +3652,6 @@ function openEqDetail(eqId){
   const allBks = bookings.filter(b=>b.equipment===eqId||b.comboColumn===eqId).sort((a,b)=>b.date.localeCompare(a.date));
   const futureBks = allBks.filter(b=>b.date>=today);
   const pastBks = allBks.filter(b=>b.date<today).slice(0,5);
-  const pl={manha:'Manhã',tarde:'Tarde',noite:'Noite',diatodo:'Dia todo',multidias:'Mais de um dia',custom:'Horário esp.'};
   const cat=e.cat;
 
   document.getElementById('eq-detail-name').textContent = e.name;
@@ -3656,7 +3704,7 @@ function openEqDetail(eqId){
     html += futureBks.slice(0,5).map(b=>`
       <div class="day-bk-item" onclick="closeEqDetail();openEdit('${b.id}')">
         <div class="day-bk-top"><span style="font-size:12px;font-weight:600">${fmtBR(b.date)}</span>${b.protein?`<span class="protocol-badge" style="margin-left:6px">${ico('flask','ico-xs')} ${esc(b.protein)}</span>`:''}</div>
-        <div class="day-bk-info">${svgUser()} <strong>${esc(b.user)}</strong>${b.user2?` + ${esc(b.user2)}`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${pl[b.period]||b.period}${b.notes?` · <em>${esc(b.notes)}</em>`:''}</div>
+        <div class="day-bk-info">${svgUser()} <strong>${esc(b.user)}</strong>${b.user2?` + ${esc(b.user2)}`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${rotuloPeriodo(b)}${b.notes?` · <em>${esc(b.notes)}</em>`:''}</div>
       </div>`).join('');
     html += '</div>';
   } else {
@@ -3668,7 +3716,7 @@ function openEqDetail(eqId){
     html += pastBks.map(b=>`
       <div class="day-bk-item" style="opacity:.7" onclick="closeEqDetail();openEdit('${b.id}')">
         <div class="day-bk-top"><span style="font-size:12px;font-weight:600">${fmtBR(b.date)}</span>${b.protein?`<span class="protocol-badge" style="margin-left:6px">${ico('flask','ico-xs')} ${esc(b.protein)}</span>`:''}</div>
-        <div class="day-bk-info">${svgUser()} <strong>${esc(b.user)}</strong>${b.user2?` + ${esc(b.user2)}`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${pl[b.period]||b.period}</div>
+        <div class="day-bk-info">${svgUser()} <strong>${esc(b.user)}</strong>${b.user2?` + ${esc(b.user2)}`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${rotuloPeriodo(b)}</div>
       </div>`).join('');
     html += '</div>';
   }
