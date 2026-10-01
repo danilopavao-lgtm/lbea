@@ -1662,9 +1662,8 @@ function bksForDate(ds){
     // Noite de equilibração aparece no dia anterior
     const eq_=equilSlot(b);
     if(eq_&&eq_.date===ds) return true;
-    // AKTA date range
-    if(b.period==='multidias'&&b.dateStart&&b.dateEnd) return ds>=b.dateStart&&ds<=b.dateEnd;
-    if(b.date===ds) return true;
+    // Dias ocupados pelo equipamento (inclui expressão em shaker de vários dias)
+    if(datasDaReserva(b).includes(ds)) return true;
     // Also show on column's own dates if different from AKTA
     if(b.comboColumn&&b.colPeriod==='multidias'&&b.colDateStart&&b.colDateEnd)
       return ds>=b.colDateStart&&ds<=b.colDateEnd;
@@ -1940,8 +1939,13 @@ function checkShakerCapacity(){
   if(!date)return;
   const bar=document.getElementById('shaker-capacity-bar');
   if(!bar)return;
-  // Find other bookings for this shaker on this date/period
-  const existing=bookings.filter(b=>b.id!==editingId&&b.equipment===eq&&b.date===date);
+  // Reservas que dividem o shaker em qualquer dia do período escolhido.
+  // Comparar só a data inicial deixava de somar expressões já em curso.
+  const fim=document.getElementById('bk-enddate')?.value;
+  const meusDias=datasDoEquipamento(eq,'custom',date,null,null,fim);
+  const existing=bookings.filter(b=>
+    b.id!==editingId && b.equipment===eq && !b.rejected &&
+    datasDaReserva(b).some(d=>meusDias.includes(d)));
   const usedVol=existing.reduce((sum,b)=>sum+(parseFloat(b.shakerVolume)||0),0);
   const total=usedVol+vol;
   const pct=Math.min(100,(total/8)*100);
@@ -2105,6 +2109,18 @@ function equilSlot(b){
 function getEffectiveDates(period, mainDate, dateStart, dateEnd){
   return period==='multidias' ? dateRange(dateStart,dateEnd) : [mainDate];
 }
+
+// Dias em que o equipamento principal fica ocupado.
+// Três casos: reserva de múltiplos dias, expressão em shaker que
+// atravessa dias, e o caso simples de um dia só.
+function datasDoEquipamento(eqId, period, date, dateStart, dateEnd, shakerEndDate){
+  if(period==='multidias' && dateStart && dateEnd) return dateRange(dateStart,dateEnd);
+  if(isShakerEq(eqId) && shakerEndDate && date && shakerEndDate>date) return dateRange(date,shakerEndDate);
+  return date?[date]:[];
+}
+function datasDaReserva(b){
+  return datasDoEquipamento(b.equipment,b.period,b.date,b.dateStart,b.dateEnd,b.shakerEndDate);
+}
 function getEffectivePeriod(period, colPeriod){
   // 'mesmo' means use the AKTA's period
   return (colPeriod&&colPeriod!=='mesmo') ? colPeriod : period;
@@ -2113,7 +2129,7 @@ function getEffectivePeriod(period, colPeriod){
 // Todas as datas em que uma reserva ocupa um dado equipamento
 function bookingDatesFor(b, eqId){
   const out=[];
-  if(b.equipment===eqId) out.push(...getEffectiveDates(b.period,b.date,b.dateStart,b.dateEnd));
+  if(b.equipment===eqId) out.push(...datasDaReserva(b));
   if(b.comboColumn===eqId){
     const eff=getEffectivePeriod(b.period,b.colPeriod);
     out.push(...getEffectiveDates(eff,b.date,
@@ -2158,8 +2174,12 @@ function prevDayNext(ds){ // dia seguinte a ds
   return fmtDate(dt);
 }
 
-function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,colDateStart,colDateEnd,equilON){
-  const aktaDates = getEffectiveDates(period,date,dateStart,dateEnd);
+function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,colDateStart,colDateEnd,equilON,shakerEndDate){
+  const aktaDates = datasDoEquipamento(eq,period,date,dateStart,dateEnd,shakerEndDate);
+  // Quando a reserva cobre mais de um dia, nos dias compartilhados o
+  // equipamento está ocupado o tempo todo — comparar faixas de horário
+  // liberaria indevidamente a madrugada dos dias intermediários.
+  const periodoA = aktaDates.length>1 ? 'multidias' : period;
   // Effective column period
   const effColPeriod = col ? getEffectivePeriod(period,colPeriod) : null;
   const colDates = col ? getEffectiveDates(
@@ -2171,7 +2191,8 @@ function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,
   for(const b of bookings){
     if(b.id===excId)continue;
     if(b.rejected)continue; // recusada não ocupa o equipamento
-    const bAktaDates = getEffectiveDates(b.period,b.date,b.dateStart,b.dateEnd);
+    const bAktaDates = datasDaReserva(b);
+    const periodoB = bAktaDates.length>1 ? 'multidias' : b.period;
     const bEffColPeriod = b.comboColumn ? getEffectivePeriod(b.period,b.colPeriod) : null;
     const bColDates = b.comboColumn ? getEffectiveDates(
       bEffColPeriod||b.period, b.date,
@@ -2181,7 +2202,7 @@ function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,
 
     // Check AKTA vs AKTA conflict
     const aktaDateOverlap = aktaDates.some(d=>bAktaDates.includes(d));
-    if(aktaDateOverlap && periodsOverlap(period,s,e,b.period,b.startTime,b.endTime)){
+    if(aktaDateOverlap && periodsOverlap(periodoA,s,e,periodoB,b.startTime,b.endTime)){
       if(b.equipment===eq) return `${eqNameEsc(eq)} já reservado neste período por ${esc(b.user)}.`;
     }
 
@@ -2324,12 +2345,12 @@ async function saveBooking(){
   if(col&&selectedColPeriod==='multidias'&&(!colDateStart||!colDateEnd)){ showConflict('Informe as datas de uso da coluna.'); return; }
 
   const equilONVal=document.getElementById('bk-equil-on')?.checked||false;
-  const conflict=checkConflict(date,selectedPeriod,st,en,eq,col,editingId,dateStart,dateEnd,selectedColPeriod,colDateStart,colDateEnd,equilONVal);
+  const conflict=checkConflict(date,selectedPeriod,st,en,eq,col,editingId,dateStart,dateEnd,selectedColPeriod,colDateStart,colDateEnd,equilONVal,shakerEndDate);
   if(conflict){ showConflict(conflict); return; }
 
   // Limite de dias seguidos por usuário (configurável por equipamento na aba Admin)
   if(bookingType!=='manutencao'){
-    const alvos=[{id:eq, datas:getEffectiveDates(selectedPeriod,date,dateStart,dateEnd)}];
+    const alvos=[{id:eq, datas:datasDoEquipamento(eq,selectedPeriod,date,dateStart,dateEnd,shakerEndDate)}];
     if(col&&col!=='_cromatografia'){
       const effCol=getEffectivePeriod(selectedPeriod,selectedColPeriod);
       const dCol=getEffectiveDates(effCol,date,
