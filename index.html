@@ -106,6 +106,26 @@
 .col-docs{display:flex;flex-direction:column;gap:3px;margin-top:7px}
 .col-doc-link{font-size:var(--fs-caption);color:var(--blue-dark);text-decoration:none;display:flex;align-items:center;gap:5px}
 .col-doc-link:hover{text-decoration:underline}
+/* Período da expressão: data e hora lado a lado, com alvo generoso no toque */
+.dt-row{display:flex;gap:var(--sp2);align-items:center}
+.dt-row input[type=date]{flex:1;min-width:0}
+.dt-row input[type=time]{width:118px;flex:none}
+.quick-row{display:flex;gap:6px;margin-top:6px}
+.mini-btn{padding:5px 11px;border:0.5px solid var(--border2);border-radius:14px;background:var(--bg2);
+  color:var(--text2);font-size:11px;font-family:var(--font);cursor:pointer;transition:all .12s}
+.mini-btn:hover{border-color:var(--blue);color:var(--blue-dark)}
+.dur-chips{display:flex;flex-wrap:wrap;gap:6px}
+.dur-chip{padding:9px 14px;border:1px solid var(--border2);border-radius:20px;background:var(--bg);color:var(--text2);
+  font-size:var(--fs-footnote);font-weight:500;font-family:var(--font);cursor:pointer;transition:all .12s;white-space:nowrap}
+.dur-chip:hover{border-color:var(--blue)}
+.dur-chip.sel{background:var(--blue);color:#fff;border-color:var(--blue-dark);font-weight:600}
+.dur-chip:active{transform:scale(.96)}
+@media (pointer:coarse){ .dur-chip{min-height:42px} .mini-btn{min-height:34px} .dt-row input{min-height:44px} }
+#exp-resumo{background:var(--blue-light);border-radius:var(--radius-sm);padding:10px 12px;font-size:var(--fs-footnote);
+  color:var(--blue-dark);line-height:1.5;display:none}
+#exp-resumo.erro{background:var(--red-light);color:var(--red)}
+#exp-resumo b{font-weight:650}
+
 .doc-group{margin-bottom:var(--sp5)}
 .doc-group-head{font-size:var(--fs-caption);font-weight:600;text-transform:uppercase;letter-spacing:.06em;
   color:var(--text3);margin-bottom:var(--sp2);display:flex;align-items:center;gap:var(--sp2)}
@@ -961,12 +981,38 @@ select option{background:var(--bg2);color:var(--text)}
       <!-- SHAKER: horário de início da expressão -->
       <div id="shaker-time-section" style="display:none">
         <div class="field">
-          <label>Início da expressão (data e hora)</label>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input type="date" id="bk-shaker-start-date" style="flex:1;min-width:130px" onchange="onShakerStartChange()">
-            <input type="time" id="bk-shaker-start-time" value="09:00" style="width:110px" onchange="calcExpDuration()">
+          <label>Início da expressão</label>
+          <div class="dt-row">
+            <input type="date" id="bk-shaker-start-date" onchange="onShakerStartChange()">
+            <input type="time" id="bk-shaker-start-time" value="09:00" onchange="onShakerStartChange()">
+          </div>
+          <div class="quick-row">
+            <button type="button" class="mini-btn" onclick="inicioHoje()">Hoje</button>
+            <button type="button" class="mini-btn" onclick="inicioAmanha()">Amanhã</button>
           </div>
         </div>
+        <div class="field">
+          <label>Por quanto tempo</label>
+          <div class="dur-chips" id="dur-chips">
+            <button type="button" class="dur-chip" data-h="8" onclick="setDuracao(8,this)">8 h</button>
+            <button type="button" class="dur-chip" data-h="16" onclick="setDuracao(16,this)">16 h</button>
+            <button type="button" class="dur-chip" data-h="24" onclick="setDuracao(24,this)">1 dia</button>
+            <button type="button" class="dur-chip" data-h="48" onclick="setDuracao(48,this)">2 dias</button>
+            <button type="button" class="dur-chip" data-h="72" onclick="setDuracao(72,this)">3 dias</button>
+            <button type="button" class="dur-chip" data-h="120" onclick="setDuracao(120,this)">5 dias</button>
+            <button type="button" class="dur-chip" data-h="168" onclick="setDuracao(168,this)">1 semana</button>
+          </div>
+          <p class="field-hint">Para cultivo contínuo, escolha a duração e o fim é calculado sozinho. Dá para ajustar na mão abaixo.</p>
+        </div>
+        <div class="field">
+          <label>Fim da expressão</label>
+          <div class="dt-row">
+            <input type="date" id="bk-enddate" onchange="calcExpDuration()">
+            <input type="time" id="bk-endtime" value="09:00" onchange="calcExpDuration()">
+          </div>
+        </div>
+        <div id="exp-resumo"></div>
+        <span id="exp-duration-label" style="display:none"></span>
       </div>
       <div id="multiday-dates" style="display:none">
         <div class="field">
@@ -1123,15 +1169,6 @@ select option{background:var(--bg2);color:var(--text)}
               <input type="time" id="bk-tempchange" value="22:00" style="width:120px">
             </div>
           </div>
-          <div class="field" style="margin-top:8px">
-            <label>Fim da expressão (data e hora)</label>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <input type="date" id="bk-enddate" style="flex:1;min-width:130px" oninput="calcExpDuration()">
-              <input type="time" id="bk-endtime" value="09:00" style="width:110px" oninput="calcExpDuration()">
-            </div>
-            <span id="exp-duration-label" style="font-size:12px;color:var(--text2);margin-top:4px;display:block"></span>
-            <p style="font-size:11px;color:var(--text3);margin-top:4px">Após este horário o shaker fica livre para reserva</p>
-          </div>'''
         </div>
       </div>
       <div class="field">
@@ -1761,6 +1798,9 @@ function openNew(date){
   const equilInfo=document.getElementById('equil-on-info');
   if(equilInfo){ equilInfo.style.display='none'; }
   if(document.getElementById('bk-shaker-start-date')) document.getElementById('bk-shaker-start-date').value='';
+  if(document.getElementById('bk-enddate')) document.getElementById('bk-enddate').value='';
+  document.querySelectorAll('#dur-chips .dur-chip').forEach(ch=>ch.classList.remove('sel'));
+  const _er=document.getElementById('exp-resumo'); if(_er) _er.style.display='none';
   if(document.getElementById('bk-shaker-start-time')) document.getElementById('bk-shaker-start-time').value='09:00';
   const pg=document.getElementById('period-grid'); if(pg) pg.style.display='flex';
   const sts=document.getElementById('shaker-time-section'); if(sts) sts.style.display='none';
@@ -1907,6 +1947,7 @@ function toggleOvernight(cb){
 }
 
 function calcExpDuration(){
+  atualizarResumoExpressao();
   const label=document.getElementById('exp-duration-label');
   if(!label)return;
   const ehShaker=isShakerEq(document.getElementById('bk-eq')?.value);
@@ -1965,6 +2006,80 @@ function checkShakerCapacity(){
   }
 }
 
+
+// ═══════════════════════════════════════════════════
+// PERÍODO DA EXPRESSÃO EM SHAKER
+// Cultivo longo é a regra, não a exceção: escolher a duração em um
+// toque evita acertar data e hora de fim em quatro campos separados.
+// ═══════════════════════════════════════════════════
+const DIAS_SEM=['dom','seg','ter','qua','qui','sex','sáb'];
+
+function inicioHoje(){ definirInicio(new Date()); }
+function inicioAmanha(){ const d=new Date(); d.setDate(d.getDate()+1); definirInicio(d); }
+function definirInicio(d){
+  const campo=document.getElementById('bk-shaker-start-date');
+  if(!campo) return;
+  campo.value=fmtDate(d);
+  onShakerStartChange();
+}
+
+// Soma horas ao início e preenche o fim
+function setDuracao(horas,btn){
+  const sd=document.getElementById('bk-shaker-start-date')?.value;
+  const st=document.getElementById('bk-shaker-start-time')?.value||'09:00';
+  if(!sd){
+    // sem início definido, assume hoje para não deixar o clique sem efeito
+    definirInicio(new Date());
+    return setDuracao(horas,btn);
+  }
+  const ini=new Date(sd+'T'+st+':00');
+  const fim=new Date(ini.getTime()+horas*3600000);
+  document.getElementById('bk-enddate').value=fmtDate(fim);
+  document.getElementById('bk-endtime').value=pad2(fim.getHours())+':'+pad2(fim.getMinutes());
+  calcExpDuration();
+}
+function pad2(n){ return String(n).padStart(2,'0'); }
+
+// Marca a bolinha que corresponde à duração atual, se houver
+function marcarChipDuracao(horas){
+  document.querySelectorAll('#dur-chips .dur-chip').forEach(ch=>{
+    ch.classList.toggle('sel', Math.abs(Number(ch.dataset.h)-horas)<0.02);
+  });
+}
+
+// Resumo em linguagem natural, com dia da semana — ajuda a perceber
+// quando a expressão atravessa o fim de semana
+function resumoExpressao(ini,fim,horas){
+  const f=d=>`${DIAS_SEM[d.getDay()]} ${pad2(d.getDate())}/${pad2(d.getMonth()+1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  const dias=Math.floor(horas/24), h=Math.round(horas%24);
+  const dur=[dias?`${dias} dia${dias>1?'s':''}`:'', h?`${h} h`:''].filter(Boolean).join(' e ');
+  return `<b>${f(ini)}</b> até <b>${f(fim)}</b><br>${dur} de cultivo contínuo`;
+}
+
+function atualizarResumoExpressao(){
+  const box=document.getElementById('exp-resumo');
+  if(!box) return;
+  const ehShaker=isShakerEq(document.getElementById('bk-eq')?.value);
+  if(!ehShaker){ box.style.display='none'; return; }
+  const sd=document.getElementById('bk-shaker-start-date')?.value;
+  const st=document.getElementById('bk-shaker-start-time')?.value;
+  const ed=document.getElementById('bk-enddate')?.value;
+  const et=document.getElementById('bk-endtime')?.value;
+  if(!sd||!st||!ed||!et){ box.style.display='none'; marcarChipDuracao(-1); return; }
+  const ini=new Date(sd+'T'+st+':00'), fim=new Date(ed+'T'+et+':00');
+  const horas=(fim-ini)/3600000;
+  box.style.display='block';
+  if(horas<=0){
+    box.className='erro';
+    box.innerHTML=`${ico('warn','ico-sm')} O fim precisa ser depois do início.`;
+    marcarChipDuracao(-1);
+    return;
+  }
+  box.className='';
+  box.innerHTML=resumoExpressao(ini,fim,horas);
+  marcarChipDuracao(horas);
+}
+
 // A data principal mudou: mantém o shaker em sincronia e revalida
 function onDateChange(){
   const d=document.getElementById('bk-date').value;
@@ -1979,11 +2094,18 @@ function onDateChange(){
 
 // Para shakers, o início da expressão é a própria data da reserva
 function onShakerStartChange(){
-  const v=document.getElementById('bk-shaker-start-date').value;
+  const sd=document.getElementById('bk-shaker-start-date');
+  const v=sd?.value;
   if(!v) return;
   document.getElementById('bk-date').value=v;
-  const ed=document.getElementById('bk-enddate');
-  if(ed&&(!ed.value||ed.value<v)) ed.value=v;
+  // Preserva a duração já escolhida: mover o início desloca o fim junto
+  const chipSel=document.querySelector('#dur-chips .dur-chip.sel');
+  if(chipSel){
+    setDuracao(Number(chipSel.dataset.h));
+  }else{
+    const ed=document.getElementById('bk-enddate');
+    if(ed&&(!ed.value||ed.value<v)) ed.value=v;
+  }
   checkShakerCapacity();
   calcExpDuration();
 }
@@ -2009,7 +2131,10 @@ function onEqChange(preCol, preColPeriod){
     if(ssd&&!ssd.value&&d) ssd.value=d;
     if(ssd&&ssd.value) document.getElementById('bk-date').value=ssd.value;
     selectedPeriod='custom'; // shaker é sempre horário específico
-    setTimeout(()=>{ checkShakerCapacity(); calcExpDuration(); }, 50);
+    // Sugestão inicial: 24 h a partir do início, para a tela não nascer vazia
+    const ed=document.getElementById('bk-enddate');
+    if(ed&&!ed.value) setTimeout(()=>setDuracao(24),0);
+    setTimeout(()=>{ checkShakerCapacity(); calcExpDuration(); }, 60);
   }
   if(isAkta){
     const cs=document.getElementById('bk-col');
