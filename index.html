@@ -132,6 +132,19 @@
 #exp-resumo.erro{background:var(--red-light);color:var(--red)}
 #exp-resumo b{font-weight:650}
 
+/* Relato de problema e estado do equipamento
+   Desenho inspirado no modelo Task do NEMO (NIST) — ver crédito no JS */
+.prob-item{border-radius:var(--radius-sm);padding:11px 12px;margin-bottom:8px;border:0.5px solid var(--border)}
+.prob-alta{background:var(--red-light);border-color:var(--red)}
+.prob-media{background:var(--amber-light);border-color:var(--amber)}
+.prob-baixa{background:var(--bg2)}
+.prob-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:var(--fs-footnote);font-weight:600}
+.prob-meta{font-size:var(--fs-caption);color:var(--text2);margin-top:3px;line-height:1.45}
+.prob-desc{font-size:var(--fs-caption);line-height:1.5;margin-top:6px;background:var(--bg);border-radius:6px;padding:8px 10px}
+.eq-parado{position:relative}
+.eq-parado::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,
+  transparent,transparent 8px,rgba(226,75,74,.07) 8px,rgba(226,75,74,.07) 16px);pointer-events:none;border-radius:var(--radius)}
+
 .doc-group{margin-bottom:var(--sp5)}
 .doc-group-head{font-size:var(--fs-caption);font-weight:600;text-transform:uppercase;letter-spacing:.06em;
   color:var(--text3);margin-bottom:var(--sp2);display:flex;align-items:center;gap:var(--sp2)}
@@ -587,6 +600,8 @@ select option{background:var(--bg2);color:var(--text)}
 <symbol id="i-play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M10 8.5l6 3.5-6 3.5z"/></symbol>
 <symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></symbol>
 <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
+<symbol id="i-alert-octagon" viewBox="0 0 24 24"><path d="M7.9 2.5h8.2l5.4 5.4v8.2l-5.4 5.4H7.9L2.5 16.1V7.9z"/><path d="M12 7.5v5M12 16.5h.01"/></symbol>
+<symbol id="i-tool-ok" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.2-8.6"/><path d="M8.5 11.5 11 14l9-9"/></symbol>
 <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></symbol>
 <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
 <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></symbol>
@@ -785,6 +800,14 @@ select option{background:var(--bg2);color:var(--text)}
             </div>
             <div id="admin-solic-list"></div>
           </div>
+          <!-- Problemas relatados -->
+          <div class="card">
+            <div class="section-head">
+              <h3>Problemas nos equipamentos</h3>
+              <span id="prob-count" style="font-size:var(--fs-caption);color:var(--text2)"></span>
+            </div>
+            <div id="admin-probs"></div>
+          </div>
           <!-- Equipamentos -->
           <div class="card">
             <div class="section-head">
@@ -913,6 +936,59 @@ select option{background:var(--bg2);color:var(--text)}
       <div class="spacer"></div>
       <button class="btn" onclick="hide('doc-edit-modal')">Cancelar</button>
       <button class="btn btn-primary" id="docm-save" onclick="saveDoc()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- RELATO DE PROBLEMA -->
+<div class="overlay" id="prob-modal" style="display:none" onclick="if(event.target===this)hide('prob-modal')">
+  <div class="modal" style="max-width:440px" role="dialog" aria-modal="true" aria-labelledby="prob-title">
+    <div class="grabber" data-close="hideProb"></div>
+    <div class="modal-head">
+      <h3 id="prob-title">Relatar problema</h3>
+      <button class="btn btn-icon" aria-label="Fechar" onclick="hide('prob-modal')"><svg class="ico"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="prob-id">
+      <div class="field">
+        <label>Equipamento</label>
+        <select id="prob-eq"></select>
+      </div>
+      <div class="field">
+        <label>O que aconteceu</label>
+        <input type="text" id="prob-titulo" maxlength="90" placeholder="ex: vazamento na bomba A">
+      </div>
+      <div class="field">
+        <label>Detalhes</label>
+        <textarea id="prob-desc" maxlength="600" rows="3" placeholder="Quando notou, o que estava fazendo, mensagem de erro, o que já tentou."></textarea>
+      </div>
+      <div class="field">
+        <label>Gravidade</label>
+        <select id="prob-urgencia">
+          <option value="baixa">Baixa — dá para continuar usando</option>
+          <option value="media" selected>Média — atrapalha, mas funciona</option>
+          <option value="alta">Alta — não dá para usar</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="check-label">
+          <input type="checkbox" id="prob-parar">
+          <span>Equipamento fora de operação</span>
+        </label>
+        <p class="field-hint">Marque se ninguém deve usar até ser resolvido. O equipamento fica bloqueado para novas reservas e aparece marcado para todos.</p>
+      </div>
+      <div class="field">
+        <label class="check-label">
+          <input type="checkbox" id="prob-risco">
+          <span>Envolve risco à segurança</span>
+        </label>
+      </div>
+      <div id="prob-err" style="display:none"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button class="btn" onclick="hide('prob-modal')">Cancelar</button>
+      <button class="btn btn-primary" id="prob-save" onclick="salvarProblema()">Enviar relato</button>
     </div>
   </div>
 </div>
@@ -1646,6 +1722,7 @@ function startApp(){
     listenColCounters();
     listenEquipment();
     listenDocs();
+    listenProblemas();
   }
   renderCalendar();
   populateFilters();
@@ -2553,6 +2630,18 @@ async function saveBooking(){
   const conflict=checkConflict(date,selectedPeriod,st,en,eq,col,editingId,dateStart,dateEnd,selectedColPeriod,colDateStart,colDateEnd,equilONVal,shakerEndDate);
   if(conflict){ showConflict(conflict); return; }
 
+  // Equipamento fora de operação: ninguém reserva até ser resolvido.
+  // Admin ainda pode, para registrar manutenção.
+  if(bookingType!=='manutencao'&&!currentUser.isAdmin){
+    const paradoId=[eq, (col&&col!=='_cromatografia')?col:null].filter(Boolean).find(id=>eqParado(id));
+    if(paradoId){
+      const pr=problemaMaisGrave(paradoId);
+      showConflict(`${eqNameEsc(paradoId)} está fora de operação: ${esc(pr?.titulo||'problema relatado')}. `+
+                   `Relatado por ${esc(pr?.relatadoPor||'—')}. Fale com um responsável antes de reservar.`);
+      return;
+    }
+  }
+
   // Limite de dias seguidos por usuário (configurável por equipamento na aba Admin)
   if(bookingType!=='manutencao'){
     const alvos=[{id:eq, datas:datasDoEquipamento(eq,selectedPeriod,date,dateStart,dateEnd,shakerEndDate)}];
@@ -2797,6 +2886,8 @@ function renderEquipamentos(){
   const grid=document.getElementById('eq-grid');
   if(!eqActive().length){ grid.innerHTML='<div class="empty-state" style="grid-column:1/-1">Nenhum equipamento disponível. Um administrador pode cadastrá-los na aba Admin.</div>'; return; }
   grid.innerHTML=eqActive().map(e=>{
+    const _parado=eqParado(e.id);
+    const _prob=problemaMaisGrave(e.id);
     const todayBks=todayAll.filter(b=>b.equipment===e.id||b.comboColumn===e.id);
     const busy=todayBks.length>0;
     const isManut=busy&&todayBks.some(b=>b.bookingType==='manutencao');
@@ -2818,11 +2909,17 @@ function renderEquipamentos(){
         <div class="col-usage-track"><div class="col-usage-fill" style="width:${cs.pct}%;background:${barColor}"></div></div>
       </div>`;
     }
-    return `<div class="eq-card" onclick="openEqDetail('${e.id}')">
-      <div class="eq-card-strip ${strip}"></div>
+    return `<div class="eq-card${_parado?' eq-parado':''}" onclick="openEqDetail('${e.id}')">
+      <div class="eq-card-strip ${_parado?'':strip}" ${_parado?'style="background:var(--red)"':''}></div>
       <div class="eq-name">${esc(e.name)}</div>
       <span class="badge ${badgeCls}">${catLabel}</span>
-      ${isManut?`<span style="font-size:11px;color:var(--amber);font-weight:500">${ico('wrench','ico-xs')} Em manutenção</span>`:busy?'<span class="eq-busy">● Ocupado hoje</span>':'<span class="eq-avail">● Disponível hoje</span>'}
+      ${_parado
+        ? `<span style="font-size:11px;color:var(--red);font-weight:600">${ico('alert-octagon','ico-xs')} Fora de operação</span>
+           <span style="font-size:10px;color:var(--text2);line-height:1.4">${esc(_prob?.titulo||'')}</span>`
+        : _prob
+          ? `<span style="font-size:11px;color:var(--amber);font-weight:500">${ico('warn','ico-xs')} ${esc(_prob.titulo)}</span>`
+          : (isManut?`<span style="font-size:11px;color:var(--amber);font-weight:500">${ico('wrench','ico-xs')} Em manutenção</span>`
+             :busy?'<span class="eq-busy">● Ocupado hoje</span>':'<span class="eq-avail">● Disponível hoje</span>')}
       ${colUsageHtml}
       ${!busy&&nextBk?`<span style="font-size:10px;color:var(--text3)">Próx: ${fmtBR(nextBk.date)}</span>`:''}
     </div>`;
@@ -2912,6 +3009,118 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 });
 
+
+
+// ═══════════════════════════════════════════════════
+// PROBLEMAS E ESTADO DO EQUIPAMENTO
+//
+// O desenho desta parte foi adaptado do modelo Task e do campo
+// "operational" do NEMO, aplicação de logística de laboratório
+// desenvolvida pelo NIST (National Institute of Standards and
+// Technology, EUA) e distribuída livremente — reconhecemos o NIST
+// como fonte da ideia. A implementação aqui é independente e própria:
+// JavaScript sobre Firestore, em vez de Python/Django.
+// Adaptado em outubro de 2026.
+// ═══════════════════════════════════════════════════
+let problemas=[];
+const URGENCIAS={alta:'Não dá para usar', media:'Atrapalha', baixa:'Dá para usar'};
+
+function listenProblemas(){
+  _unsubs.push(db.collection('problems').onSnapshot(s=>{
+    problemas=s.docs.map(d=>({id:d.id,...d.data()}));
+    renderCalendar();
+    if(document.getElementById('panel-equipamentos')?.classList.contains('active')) renderEquipamentos();
+    if(document.getElementById('panel-admin')?.classList.contains('active')) renderAdmin();
+    if(document.getElementById('eq-detail')?.style.display!=='none'&&detailEqId) openEqDetail(detailEqId);
+  }, err=>console.error('problems:',err)));
+}
+
+const problemasAbertos = eqId => problemas.filter(p=>p.eqId===eqId&&!p.resolvido);
+// Equipamento parado: alguém relatou problema que exige interrupção
+const eqParado = eqId => problemasAbertos(eqId).some(p=>p.parar);
+const problemaMaisGrave = eqId => {
+  const ordem={alta:3,media:2,baixa:1};
+  return problemasAbertos(eqId).sort((a,b)=>(ordem[b.urgencia]||0)-(ordem[a.urgencia]||0))[0]||null;
+};
+
+function abrirRelato(eqId){
+  if(!currentUser) return;
+  document.getElementById('prob-id').value='';
+  document.getElementById('prob-titulo').value='';
+  document.getElementById('prob-desc').value='';
+  document.getElementById('prob-urgencia').value='media';
+  document.getElementById('prob-parar').checked=false;
+  document.getElementById('prob-risco').checked=false;
+  document.getElementById('prob-err').style.display='none';
+  const s=document.getElementById('prob-eq');
+  s.innerHTML=eqActive().map(e=>`<option value="${e.id}"${e.id===eqId?' selected':''}>${esc(e.name)}</option>`).join('');
+  hide('eq-detail');
+  show('prob-modal');
+  setTimeout(()=>document.getElementById('prob-titulo').focus(),60);
+}
+function hideProb(){ hide('prob-modal'); }
+
+async function salvarProblema(){
+  const eqId=document.getElementById('prob-eq').value;
+  const titulo=document.getElementById('prob-titulo').value.trim();
+  const desc=document.getElementById('prob-desc').value.trim();
+  if(titulo.length<5){
+    const el=document.getElementById('prob-err');
+    el.innerHTML=`<div class="alert alert-danger">${ico('warn','ico-sm')} Descreva o problema em poucas palavras, com pelo menos 5 caracteres.</div>`;
+    el.style.display='block'; return;
+  }
+  const btn=document.getElementById('prob-save'); btn.disabled=true; btn.textContent='Enviando...';
+  try{
+    const parar=document.getElementById('prob-parar').checked;
+    await withTimeout(db.collection('problems').add({
+      eqId, titulo, descricao:desc||null,
+      urgencia:document.getElementById('prob-urgencia').value,
+      parar, risco:document.getElementById('prob-risco').checked,
+      relatadoPor:currentUser.name, relatadoEm:new Date().toISOString(),
+      resolvido:false
+    }),12000,'enviar o relato');
+    hide('prob-modal');
+    toast(parar?'Relatado — equipamento marcado como fora de operação':'Problema relatado','alert-octagon');
+  }catch(err){
+    const el=document.getElementById('prob-err');
+    el.innerHTML=`<div class="alert alert-danger">${ico('warn','ico-sm')} ${esc(errMsg(err))}</div>`;
+    el.style.display='block';
+  }finally{ btn.disabled=false; btn.textContent='Enviar relato'; }
+}
+
+async function resolverProblema(id){
+  const p=problemas.find(x=>x.id===id); if(!p) return;
+  const nota=prompt(`Marcar como resolvido: "${p.titulo}"\n\nO que foi feito? (aparece no histórico)`,'');
+  if(nota===null) return;
+  try{
+    await withTimeout(db.collection('problems').doc(id).update({
+      resolvido:true, solucao:nota.trim()||null,
+      resolvidoPor:currentUser.name, resolvidoEm:new Date().toISOString()
+    }),10000,'resolver');
+    toast('Problema resolvido','tool-ok');
+  }catch(err){ alert('Erro: '+errMsg(err)); }
+}
+
+// Lista de problemas de um equipamento, para o detalhe e o painel
+function htmlProblemas(lista,{comEquipamento=false}={}){
+  return lista.map(p=>`
+    <div class="prob-item prob-${esc(p.urgencia||'baixa')}">
+      <div class="prob-top">
+        ${ico(p.parar?'alert-octagon':'warn','ico-sm')}
+        <span>${esc(p.titulo)}</span>
+        ${p.parar?'<span class="badge badge-manut">fora de operação</span>':''}
+        ${p.risco?'<span class="badge badge-manut">risco</span>':''}
+      </div>
+      <div class="prob-meta">
+        ${comEquipamento?eqNameEsc(p.eqId)+' · ':''}${esc(URGENCIAS[p.urgencia]||'')} ·
+        ${esc(p.relatadoPor||'')} em ${fmtBR((p.relatadoEm||'').split('T')[0])}
+      </div>
+      ${p.descricao?`<div class="prob-desc">${esc(p.descricao)}</div>`:''}
+      ${currentUser?.isAdmin?`<div style="margin-top:8px">
+        <button class="btn btn-sm" onclick="resolverProblema('${p.id}')">${ico('check','ico-xs')} Marcar como resolvido</button>
+      </div>`:''}
+    </div>`).join('');
+}
 
 // ═══════════════════════════════════════════════════
 // DOCUMENTAÇÃO
@@ -3453,7 +3662,20 @@ async function recusarPedido(id){
   }catch(err){ alert('Erro ao recusar: '+errMsg(err)); }
 }
 
+function renderAdminProblemas(){
+  const el=document.getElementById('admin-probs');
+  if(!el) return;
+  const abertos=problemas.filter(p=>!p.resolvido)
+    .sort((a,b)=>({alta:3,media:2,baixa:1}[b.urgencia]||0)-({alta:3,media:2,baixa:1}[a.urgencia]||0));
+  const cnt=document.getElementById('prob-count');
+  if(cnt) cnt.textContent=abertos.length?`${abertos.length} em aberto`:'';
+  el.innerHTML=abertos.length
+    ? htmlProblemas(abertos,{comEquipamento:true})
+    : `<div class="empty-state"><svg class="bf bf-xs"><use href="#m-buffer-sleep"/></svg>Nenhum problema em aberto.</div>`;
+}
+
 function renderAdmin(){
+  renderAdminProblemas();
   renderAdminSolicitacoes();
   renderAdminEquipment();
   renderAdminUsers();
@@ -3669,6 +3891,9 @@ function newFromDayPopup(){
 // ═══════════════════════════════════════════════════
 let detailEqId = null;
 
+// Mantém o botão no fim do detalhe sem quebrar quando não há ficha
+function ficha_vazia_guard(h){ return h||''; }
+
 function openEqDetail(eqId){
   detailEqId = eqId;
   const e = eqById(eqId);
@@ -3771,7 +3996,19 @@ function openEqDetail(eqId){
       (pk.test?`<div class="spec-cell full"><span class="spec-label">Teste de eficiência</span><span class="spec-val">${esc(pk.test)}</span></div>`:'')+
     `</div>`;
   }
-  html += ficha + '<div id="eq-detail-docs"></div>';
+  // Problemas abertos aparecem antes de tudo: é o que muda a decisão
+  const probsAbertos=problemasAbertos(eqId);
+  let blocoProb='';
+  if(probsAbertos.length){
+    blocoProb=`<div class="detail-section">Problemas em aberto</div>`+htmlProblemas(probsAbertos);
+  }
+  const botaoRelato=currentUser
+    ? `<div style="margin-top:var(--sp4)">
+         <button class="btn btn-sm" onclick="abrirRelato('${eqId}')">
+           ${ico('alert-octagon','ico-sm')} Relatar problema neste equipamento
+         </button>
+       </div>` : '';
+  html = blocoProb + html + '<div id="eq-detail-docs"></div>' + ficha_vazia_guard(botaoRelato);
   document.getElementById('eq-detail-body').innerHTML = html;
   renderEqDocs();
   document.getElementById('eq-detail-reserve-btn').onclick = ()=>{ closeEqDetail(); openNewForEq(eqId); };
