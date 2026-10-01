@@ -1444,6 +1444,12 @@ const FIREBASE_CONFIG = {
   appId: "1:976950450103:web:0721d8c832fb6958ce7a32"
 };
 
+// Troca o texto da tela de carregamento sem apagar a identidade visual
+function mensagemCarregando(html){
+  const el=document.getElementById('loading-msg');
+  if(el) el.innerHTML=html;
+}
+
 // Se a autenticação não responder, mostra saída em vez de girar para sempre
 let _vigiaCarregamento=null;
 function iniciarVigiaDeCarregamento(){
@@ -1451,12 +1457,11 @@ function iniciarVigiaDeCarregamento(){
   _vigiaCarregamento=setTimeout(()=>{
     const tela=document.getElementById('loading-screen');
     if(!tela||tela.style.display==='none')return;
-    const msg=tela.querySelector('#loading-msg');
-    if(msg) msg.innerHTML=
+    mensagemCarregando(
       `<div style="text-align:center;line-height:1.6">
          ${navigator.onLine?'A conexão está demorando mais que o normal.':'Sem conexão com a internet.'}<br>
          <button class="btn btn-sm" style="margin-top:10px" onclick="location.reload()">Tentar de novo</button>
-       </div>`;
+       </div>`);
   },12000);
 }
 function cancelarVigiaDeCarregamento(){
@@ -1472,18 +1477,37 @@ window.onload = async function(){
     iniciarVigiaDeCarregamento();
     // O estado de autenticação é o que conduz o aplicativo
     auth.onAuthStateChanged(async (user)=>{
-      cancelarVigiaDeCarregamento();
-      hide('loading-screen');
-      if(user){
-        firebaseUser = user;
-        const needsPicker = await loadOrCreateProfile(user);
-        if(!needsPicker) startApp();
-        // If needsPicker is true, confirmName() will call startApp() after
-      } else {
+      if(!user){
+        cancelarVigiaDeCarregamento();
         firebaseUser = null;
         currentUser = null;
         hide('app');
         showLogin();
+        hide('loading-screen');   // some só depois que o login já está na tela
+        return;
+      }
+      firebaseUser = user;
+      // Carregar o perfil envolve duas consultas ao banco. Antes a tela de
+      // carregamento era escondida antes delas, e o intervalo até o app
+      // aparecer ficava em branco — por segundos, em rede móvel.
+      mensagemCarregando('Carregando seu perfil...');
+      try{
+        const needsPicker = await loadOrCreateProfile(user);
+        cancelarVigiaDeCarregamento();
+        if(needsPicker){
+          hide('loading-screen');   // a tela de escolha de nome já está visível
+        }else{
+          startApp();
+          hide('loading-screen');
+        }
+      }catch(err){
+        cancelarVigiaDeCarregamento();
+        mensagemCarregando(
+          `<div style="text-align:center;line-height:1.6;max-width:260px">
+             Não foi possível carregar seus dados.<br>
+             <span style="font-size:11px;color:#999">${esc(errMsg(err))}</span><br>
+             <button class="btn btn-sm" style="margin-top:10px" onclick="location.reload()">Tentar de novo</button>
+           </div>`);
       }
     });
   } catch(e){
@@ -1495,8 +1519,7 @@ window.onload = async function(){
 // Load this user's Firestore profile (name, isAdmin) or create one on first login
 async function loadOrCreateProfile(user){
   const ref = db.collection('users').doc(user.uid);
-  const snap = await ref.get();
-  await loadUsers();
+  const snap = await withTimeout(ref.get(), 12000, 'carregar seu perfil');
   const ADMIN_EMAILS = ['danilopavao@usp.br'];
 
   if(snap.exists){
@@ -1509,12 +1532,16 @@ async function loadOrCreateProfile(user){
     // Existing user — go straight to app
     return false; // false = no name picker needed
   } else {
-    // New user — show name picker
+    // Primeiro acesso: aí sim a lista completa importa, para saber se este
+    // é o primeiro usuário e para recusar nome repetido
+    mensagemCarregando('Preparando seu cadastro...');
+    await loadUsers();
     const suggestedName = user.displayName || user.email.split('@')[0];
     const inp = document.getElementById('picker-name');
     if(inp) inp.value = suggestedName;
     hide('login-screen');
     show('name-picker-screen');
+    hide('loading-screen');
     // Store partial profile data for later
     window._pendingProfile = {
       uid: user.uid,
