@@ -2139,6 +2139,20 @@ function calcExpDuration(){
   label.textContent=`≈ ${h}h${m?m+'min':''} de expressão`;
 }
 
+// Quem realmente divide o shaker comigo: só quem está dentro ao mesmo
+// tempo. Somar toda reserva que encosta no mesmo dia enchia a barra até
+// quando uma expressão termina antes da outra começar — o shaker estava
+// vazio e o medidor dizia que não cabia mais nada.
+function dividemOShaker(eqId, meusDias, horaIni, horaFim, excId){
+  return bookings.filter(b=>{
+    if(b.id===excId || b.equipment!==eqId || b.rejected) return false;
+    if(b.bookingType==='manutencao') return false; // bloqueio, não volume
+    const h=horasDaReserva(b);
+    return conflitaNoTempo(meusDias,'custom',horaIni,horaFim,
+                           datasDaReserva(b),b.period,h.ini,h.fim);
+  });
+}
+
 function checkShakerCapacity(){
   const eq=document.getElementById('bk-eq')?.value;
   const vol=parseFloat(document.getElementById('bk-volume')?.value)||0;
@@ -2148,13 +2162,11 @@ function checkShakerCapacity(){
   if(!date)return;
   const bar=document.getElementById('shaker-capacity-bar');
   if(!bar)return;
-  // Reservas que dividem o shaker em qualquer dia do período escolhido.
-  // Comparar só a data inicial deixava de somar expressões já em curso.
   const fim=document.getElementById('bk-enddate')?.value;
+  const horaIni=document.getElementById('bk-shaker-start-time')?.value;
+  const horaFim=document.getElementById('bk-endtime')?.value;
   const meusDias=datasDoEquipamento(eq,'custom',date,null,null,fim);
-  const existing=bookings.filter(b=>
-    b.id!==editingId && b.equipment===eq && !b.rejected &&
-    datasDaReserva(b).some(d=>meusDias.includes(d)));
+  const existing=dividemOShaker(eq,meusDias,horaIni,horaFim,editingId);
   const usedVol=existing.reduce((sum,b)=>sum+(parseFloat(b.shakerVolume)||0),0);
   const total=usedVol+vol;
   const pct=Math.min(100,(total/8)*100);
@@ -2168,9 +2180,10 @@ function checkShakerCapacity(){
   const usersEl=document.getElementById('shaker-cap-users');
   if(!usersEl)return;
   if(existing.length){
-    usersEl.textContent='Já reservado: '+existing.map(b=>`${esc(b.user)} (${b.shakerVolume||'?'}L)`).join(', ');
+    usersEl.textContent='Dentro do shaker ao mesmo tempo: '
+      +existing.map(b=>`${b.user} (${b.shakerVolume||'?'}L)`).join(', ');
   } else {
-    usersEl.textContent='Nenhuma outra reserva neste período';
+    usersEl.textContent='Shaker livre no horário escolhido';
   }
 }
 
@@ -2743,9 +2756,15 @@ async function saveBooking(){
   if(col&&col!=='_cromatografia'&&!selectedColPeriod){ showConflict('Você selecionou uma coluna — escolha também o período de uso dela.'); return; }
   // Shaker capacity warning
   if(isShaker&&shakerVolume){
-    const existingVol=bookings.filter(b=>b.id!==editingId&&b.equipment===eqObj?.id&&b.date===mainDate).reduce((s,b)=>s+(parseFloat(b.shakerVolume)||0),0);
-    if(existingVol+parseFloat(shakerVolume)>8){
-      if(!confirm(`Atenção: Volume total (${(existingVol+parseFloat(shakerVolume)).toFixed(1)}L) excede a capacidade de 8L do shaker. Deseja salvar mesmo assim?`))return;
+    // Mesma regra da barra na tela: conta só quem está dentro ao mesmo
+    // tempo. Antes somava qualquer reserva da data inicial, mesmo já encerrada.
+    const meusDias=datasDoEquipamento(eq,'custom',inicioEmShaker,null,null,shakerEndDate);
+    const juntos=dividemOShaker(eq,meusDias,st,shakerEndTime,editingId);
+    const existingVol=juntos.reduce((s,b)=>s+(parseFloat(b.shakerVolume)||0),0);
+    const total=existingVol+parseFloat(shakerVolume);
+    if(total>8){
+      const quem=juntos.filter(b=>b.shakerVolume).map(b=>`${b.user} ${b.shakerVolume}L`).join(', ');
+      if(!confirm(`Atenção: volume total (${total.toFixed(1)}L) passa da capacidade de 8L do shaker.\n\nJá dentro no mesmo horário: ${quem||'—'}.\n\nDeseja salvar mesmo assim?`))return;
     }
   }
   if(col&&selectedColPeriod==='multidias'&&(!colDateStart||!colDateEnd)){ showConflict('Informe as datas de uso da coluna.'); return; }
