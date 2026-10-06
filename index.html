@@ -2029,7 +2029,7 @@ function openEdit(id){
   document.getElementById('bk-tempchange').value=b.shakerTempChange||'22:00';
   if(document.getElementById('bk-endtime')) document.getElementById('bk-endtime').value=b.shakerEndTime||'09:00';
   if(document.getElementById('bk-enddate')) document.getElementById('bk-enddate').value=b.shakerEndDate||'';
-  if(document.getElementById('bk-shaker-start-date')) document.getElementById('bk-shaker-start-date').value=b.shakerStartDate||b.date||'';
+  if(document.getElementById('bk-shaker-start-date')) document.getElementById('bk-shaker-start-date').value=b.date||b.shakerStartDate||'';
   if(document.getElementById('bk-shaker-start-time')) document.getElementById('bk-shaker-start-time').value=b.startTime||'09:00';
   const equilCb=document.getElementById('bk-equil-on');
   if(equilCb){ equilCb.checked=!!b.equilON; toggleEquilON(equilCb); }
@@ -2451,12 +2451,27 @@ function conflitaNoTempo(diasA,pA,sA,eA,diasB,pB,sB,eB){
   return A.ini < B.fim && B.ini < A.fim;
 }
 
+// Teto de dias de uma reserva. Serve de rede de segurança: digitar 2226
+// em vez de 2026 na data de fim gerava uma lista de 73 mil dias, e cada
+// verificação de conflito percorre essa lista para cada reserva do banco
+// — na prática o navegador travava. O limite amigável fica na validação;
+// este aqui é o que impede o travamento mesmo com dado ruim já salvo.
+const MAX_DIAS_RESERVA=180;
+const TETO_DIAS_RANGE=400;
 function dateRange(start,end){
   const dates=[];
   let cur=new Date(start+'T12:00:00');
   const last=new Date(end+'T12:00:00');
-  while(cur<=last){ dates.push(fmtDate(cur)); cur.setDate(cur.getDate()+1); }
+  while(cur<=last && dates.length<TETO_DIAS_RANGE){
+    dates.push(fmtDate(cur)); cur.setDate(cur.getDate()+1);
+  }
   return dates;
+}
+// Dias entre duas datas, inclusive — sem construir a lista
+function diasEntre(inicio,fim){
+  const a=indiceDoDia(inicio), b=indiceDoDia(fim);
+  if(!isFinite(a)||!isFinite(b)) return null;
+  return b-a+1;
 }
 
 function prevDay(ds){
@@ -2544,6 +2559,17 @@ function bookingDatesFor(b, eqId){
     if(es&&es.col===eqId) out.push(es.date);
   }
   return out;
+}
+
+// Primeiro e último dia que a reserva ocupa, contando a coluna vinculada
+// e a noite de equilibração. É a faixa real da reserva, não só o dia em
+// que ela começa.
+function faixaDaReserva(b){
+  const d=[...datasDaReserva(b)];
+  if(b.comboColumn) d.push(...bookingDatesFor(b,b.comboColumn));
+  if(!d.length){ const u=b.date||''; return {ini:u, fim:u}; }
+  d.sort();
+  return {ini:d[0], fim:d[d.length-1]};
 }
 
 // Quantos dias seguidos o usuário ficaria com o equipamento, incluindo a nova reserva.
@@ -2733,14 +2759,17 @@ async function saveBooking(){
   const colDateStart=document.getElementById('bk-col-date-start').value;
   const colDateEnd=document.getElementById('bk-col-date-end').value;
 
-  // Define mainDate early — needed for capacity check
-  const mainDate = selectedPeriod==='multidias' ? dateStart : date;
+  // Uma única fonte de verdade para o dia em que a reserva começa.
+  // O shaker tem o seu próprio campo de data; gravar 'bk-date' aqui e
+  // validar por 'bk-shaker-start-date' deixava as duas coisas podendo
+  // discordar — a validação olhava um dia e a checagem de conflito, outro.
+  const inicioEmShaker=isShaker?(document.getElementById('bk-shaker-start-date')?.value||date):null;
+  const mainDate = selectedPeriod==='multidias' ? dateStart : (inicioEmShaker||date);
 
   if(!selectedPeriod){ showConflict('Selecione o período da reserva antes de salvar.'); return; }
 
   // Para o shaker, a comparação é data+hora: o fim pode cair num
   // horário menor que o de início, desde que seja num dia posterior.
-  const inicioEmShaker=isShaker?(document.getElementById('bk-shaker-start-date')?.value||date):null;
   if(isShaker){
     if(!inicioEmShaker||!shakerEndDate){
       showConflict('Informe quando a expressão começa e quando termina.'); return; }
@@ -2753,6 +2782,17 @@ async function saveBooking(){
   if(selectedPeriod==='multidias'&&dateEnd<dateStart){ showConflict('A data de fim deve ser posterior à data de início.'); return; }
   if(selectedPeriod==='multidias'&&dateEnd===dateStart&&st&&en&&st>=en){
     showConflict('Começo e fim caem no mesmo dia: o horário de início tem de ser anterior ao de fim.'); return; }
+
+  // Reserva absurdamente longa é quase sempre ano digitado errado.
+  // Barrar aqui evita que o dado ruim entre no banco e atrapalhe todos.
+  const diasPedidos = selectedPeriod==='multidias' ? diasEntre(dateStart,dateEnd)
+                    : isShaker ? diasEntre(inicioEmShaker,shakerEndDate)
+                    : 1;
+  if(diasPedidos===null){ showConflict('Alguma data está incompleta ou inválida. Confira os campos de data.'); return; }
+  if(diasPedidos>MAX_DIAS_RESERVA){
+    showConflict(`Esta reserva cobriria <strong>${diasPedidos} dias</strong>, acima do máximo de ${MAX_DIAS_RESERVA}. `+
+                 `Confira o ano nas datas — quase sempre é um dígito trocado.`); return; }
+
   if(col&&col!=='_cromatografia'&&!selectedColPeriod){ showConflict('Você selecionou uma coluna — escolha também o período de uso dela.'); return; }
   // Shaker capacity warning
   if(isShaker&&shakerVolume){
@@ -2849,7 +2889,7 @@ Deseja continuar?`))return;
     equipment:eq,
     comboColumn:col||null,
     equilON:document.getElementById('bk-equil-on')?.checked||false,
-    shakerStartDate:isShaker?document.getElementById('bk-shaker-start-date')?.value||null:null,
+    shakerStartDate:isShaker?mainDate:null, // sempre igual a 'date': ver mainDate acima
     colPeriod:col?selectedColPeriod:null,
     colDateStart:col&&selectedColPeriod==='multidias'?colDateStart:null,
     colDateEnd:col&&selectedColPeriod==='multidias'?colDateEnd:null,
@@ -2930,8 +2970,11 @@ async function decrementColUse(colId){
   const ref=db.collection('colCounters').doc(colId);
   const snap=await ref.get();
   if(!snap.exists)return;
-  const cur=snap.data().uses||0;
-  if(cur>0) await ref.update({uses:cur-1});
+  // Também atômico. Como o decremento não pode ser condicional no
+  // servidor, a leitura serve só para não descontar de um contador que
+  // já está em zero; getColStatus trunca em zero por garantia.
+  if((snap.data().uses||0)>0)
+    await ref.update({uses: firebase.firestore.FieldValue.increment(-1)});
 }
 
 function showConflict(msg){
@@ -2975,11 +3018,16 @@ function renderReservas(){
   if(eqF) bks=bks.filter(b=>b.equipment===eqF||b.comboColumn===eqF);
   if(uF) bks=bks.filter(b=>b.user===uF);
   if(sF) bks=bks.filter(b=>JSON.stringify(b).toLowerCase().includes(sF));
-  if(activePeriodFilter==='past') bks=bks.filter(b=>b.date<today);
-  else if(activePeriodFilter==='today') bks=bks.filter(b=>b.date===today);
-  else if(activePeriodFilter==='week') bks=bks.filter(b=>b.date>=today&&b.date<=weekEnd);
-  else if(activePeriodFilter==='month') bks=bks.filter(b=>b.date>=today&&b.date<=monthEnd);
-  else if(activePeriodFilter==='future') bks=bks.filter(b=>b.date>today);
+  // Os filtros olham a faixa ocupada, não só o dia em que a reserva
+  // começa. Com a data inicial, uma reserva de quatro dias iniciada
+  // anteontem e terminando amanhã não aparecia em "Hoje" e aparecia em
+  // "Passadas" — justamente a reserva que está acontecendo agora.
+  const f=b=>faixaDaReserva(b);
+  if(activePeriodFilter==='past') bks=bks.filter(b=>f(b).fim<today);
+  else if(activePeriodFilter==='today') bks=bks.filter(b=>f(b).ini<=today&&f(b).fim>=today);
+  else if(activePeriodFilter==='week') bks=bks.filter(b=>f(b).ini<=weekEnd&&f(b).fim>=today);
+  else if(activePeriodFilter==='month') bks=bks.filter(b=>f(b).ini<=monthEnd&&f(b).fim>=today);
+  else if(activePeriodFilter==='future') bks=bks.filter(b=>f(b).ini>today);
   else if(activePeriodFilter==='manut') bks=bks.filter(b=>b.bookingType==='manutencao');
 
 
@@ -3016,7 +3064,7 @@ function renderReservas(){
       </div>
       ${b.rejected&&b.rejectedReason?`<div style="font-size:var(--fs-caption);color:var(--red);margin-bottom:3px">Motivo: ${esc(b.rejectedReason)}</div>`:''}
       ${b.protein?`<div style="margin-bottom:3px"><span class="protocol-badge">${ico('flask','ico-xs')} ${esc(b.protein)}</span></div>`:''}
-      ${b.shakerErlens||b.shakerTemp1?`<div style="margin-bottom:3px">${b.shakerErlens?`<span class="badge-shaker">${ico('layers','ico-xs')} ${b.shakerErlens} erlens</span> `:''}${b.shakerVolume?`<span class="badge-shaker">${esc(b.shakerVolume)}L</span> `:''}${b.shakerTemp1?`<span class="badge-shaker">${b.shakerTemp1}°C</span> `:''}${b.shakerOvernight&&b.shakerTemp2?`<span class="badge-shaker">→ ${b.shakerTemp2}°C ON</span>`:''}${b.shakerEndTime?`<span class="badge-shaker">até ${b.shakerEndDate?fmtBR(b.shakerEndDate)+' ':''} ${b.shakerEndTime}</span>`:''}</div>`:''}
+      ${b.shakerErlens||b.shakerTemp1?`<div style="margin-bottom:3px">${b.shakerErlens?`<span class="badge-shaker">${ico('layers','ico-xs')} ${esc(b.shakerErlens)} erlens</span> `:''}${b.shakerVolume?`<span class="badge-shaker">${esc(b.shakerVolume)}L</span> `:''}${b.shakerTemp1?`<span class="badge-shaker">${esc(b.shakerTemp1)}°C</span> `:''}${b.shakerOvernight&&b.shakerTemp2?`<span class="badge-shaker">→ ${esc(b.shakerTemp2)}°C ON</span>`:''}${b.shakerEndTime?`<span class="badge-shaker">até ${b.shakerEndDate?fmtBR(b.shakerEndDate)+' ':''} ${esc(b.shakerEndTime)}</span>`:''}</div>`:''}
       <div class="ri-info">${svgUser()} ${esc(b.user)}${b.user2?` + ${esc(b.user2)}`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${time}${colTime}${b.notes?` · <em>${esc(b.notes)}</em>`:''}</div>
     </div>`;
   }).join('');
@@ -3090,7 +3138,11 @@ function toast(msg, iconName){
   wrap.innerHTML='';
   const el=document.createElement('div');
   el.className='toast';
-  el.innerHTML=`${ico(iconName||'check')}<span>${msg}</span>`;
+  // O texto é escapado AQUI, não em cada chamada. Havia avisos montados
+  // com o nome do usuário ("Solicitação de X aprovada") indo direto para
+  // innerHTML: um nome com marcação viraria código no navegador de quem
+  // aprovasse. Centralizando, nenhuma chamada futura pode esquecer.
+  el.innerHTML=`${ico(iconName||'check')}<span>${esc(msg)}</span>`;
   wrap.appendChild(el);
   setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),200); }, 2400);
 }
@@ -3673,7 +3725,7 @@ function mostrarAviso({titulo, descricao, texto, assunto, contatos}){
   el.innerHTML=`
     <div class="modal" style="max-width:400px" role="dialog" aria-modal="true">
       <div class="grabber" data-close="fecharAviso"></div>
-      <div class="modal-head"><h3>${titulo}</h3>
+      <div class="modal-head"><h3>${esc(titulo)}</h3>
         <button class="btn btn-icon" aria-label="Fechar" onclick="fecharAviso()"><svg class="ico"><use href="#i-x"/></svg></button>
       </div>
       <div class="modal-body">
@@ -3681,7 +3733,7 @@ function mostrarAviso({titulo, descricao, texto, assunto, contatos}){
         <div class="aviso-preview">${esc(texto)}</div>
         <div style="display:flex;flex-direction:column;gap:6px">
           ${w.map(x=>`<a class="btn" style="justify-content:flex-start" href="${x.url}" target="_blank" rel="noopener" onclick="fecharAviso()">${ico('user','ico-sm')} WhatsApp de ${esc(x.nome)}</a>`).join('')}
-          ${mail?`<a class="btn" style="justify-content:flex-start" href="${mail}" onclick="fecharAviso()">${ico('info','ico-sm')} Enviar por e-mail</a>`:''}
+          ${mail?`<a class="btn" style="justify-content:flex-start" href="${esc(mail)}" onclick="fecharAviso()">${ico('info','ico-sm')} Enviar por e-mail</a>`:''}
           <button class="btn" style="justify-content:flex-start" onclick="copiarAviso(this)">${ico('list','ico-sm')} Copiar mensagem</button>
         </div>
         ${!w.length?`<p class="field-hint">Nenhum responsável tem WhatsApp cadastrado. Um administrador pode preencher em Admin › Usuários › Editar.</p>`:''}
@@ -4014,7 +4066,7 @@ function openDayPopup(ds){
           ${ocup?`<span class="badge badge-other" style="font-size:10px">Neste dia: ${esc(ocup)}</span>`:''}
         </div>
         ${b.protein?`<div style="margin-bottom:4px"><span class="protocol-badge">${ico('flask','ico-xs')} ${esc(b.protein)}</span></div>`:''}
-        ${b.shakerErlens||b.shakerTemp1?`<div style="margin-bottom:4px">${b.shakerErlens?`<span class="badge-shaker">${ico('layers','ico-xs')} ${b.shakerErlens} erlens</span> `:''}${b.shakerVolume?`<span class="badge-shaker">${esc(b.shakerVolume)}L</span> `:''}${b.shakerTemp1?`<span class="badge-shaker">${b.shakerTemp1}°C${b.shakerOvernight&&b.shakerTemp2?' → '+b.shakerTemp2+'°C ON':''}</span>`:''}${b.shakerTempChange?` <span style="font-size:11px;color:var(--text2)">troca às ${b.shakerTempChange}</span>`:''}</div>`:''}
+        ${b.shakerErlens||b.shakerTemp1?`<div style="margin-bottom:4px">${b.shakerErlens?`<span class="badge-shaker">${ico('layers','ico-xs')} ${esc(b.shakerErlens)} erlens</span> `:''}${b.shakerVolume?`<span class="badge-shaker">${esc(b.shakerVolume)}L</span> `:''}${b.shakerTemp1?`<span class="badge-shaker">${esc(b.shakerTemp1)}°C${b.shakerOvernight&&b.shakerTemp2?' → '+esc(b.shakerTemp2)+'°C ON':''}</span>`:''}${b.shakerTempChange?` <span style="font-size:11px;color:var(--text2)">troca às ${esc(b.shakerTempChange)}</span>`:''}</div>`:''}
         <div class="day-bk-info">${svgUser()} <strong>${esc(b.user)}</strong>${b.user2?` + <strong>${esc(b.user2)}</strong>`:''}${b.institution?` <span class="badge-ext">${esc(b.institution)}</span>`:''} · ${time}${b.notes?` · <em>${esc(b.notes)}</em>`:''}</div>
       </div>`;
     }).join('');
@@ -4195,15 +4247,20 @@ function debounceSearch(){ clearTimeout(_searchTimer); _searchTimer=setTimeout(r
 // ═══════════════════════════════════════════════════
 // COLUMN USAGE COUNTER
 // ═══════════════════════════════════════════════════
+// A soma acontece no servidor, não no navegador. Antes era ler-e-somar-
+// e-gravar: duas pessoas reservando a mesma coluna no mesmo instante liam
+// 7 e as duas gravavam 8 — um uso desaparecia da contagem, e é essa
+// contagem que decide quando a coluna precisa de limpeza. Também poupa
+// uma leitura por reserva.
+// Não grava 'limit' aqui: o limite pertence ao cadastro do equipamento e
+// só o administrador o altera. Escrevê-lo junto faria toda reserva comum
+// tentar mudar um campo que as regras do servidor protegem — e a escrita
+// seria recusada. getColStatus já cai no cadastro quando o campo falta.
 async function incrementColUse(colId){
-  const ref=db.collection('colCounters').doc(colId);
-  const snap=await ref.get();
-  if(snap.exists){
-    await ref.update({uses: (snap.data().uses||0)+1, lastUsed: new Date().toISOString()});
-  } else {
-    // Primeiro uso — limite vem do cadastro do equipamento
-    await ref.set({uses:1, limit:colLimitOf(colId), lastReset:null, lastResetBy:null, lastUsed:new Date().toISOString()});
-  }
+  await db.collection('colCounters').doc(colId).set({
+    uses: firebase.firestore.FieldValue.increment(1),
+    lastUsed: new Date().toISOString()
+  },{merge:true});
 }
 
 async function resetColCounter(colId){
@@ -4236,7 +4293,7 @@ async function setColLimit(colId){
 function getColStatus(colId){
   const c=colCounters[colId];
   if(!c) return {uses:0, limit:colLimitOf(colId), pct:0, status:'ok'};
-  const uses=c.uses||0;
+  const uses=Math.max(0, c.uses||0); // nunca mostra contador negativo
   const limit=c.limit||colLimitOf(colId);
   const pct=Math.min(100,Math.round((uses/limit)*100));
   const status=uses>=limit?'danger':uses>=(limit*0.8)?'warn':'ok';
