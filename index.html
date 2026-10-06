@@ -1105,6 +1105,16 @@ select option{background:var(--bg2);color:var(--text)}
             <input type="date" id="bk-date-end" style="flex:1">
           </div>
         </div>
+        <div class="field">
+          <label>Horários — opcional</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="time" id="bk-md-start" style="width:120px" aria-label="Horário de início no primeiro dia" onchange="resumoMultidias()">
+            <span style="color:var(--text2);font-size:13px">até</span>
+            <input type="time" id="bk-md-end" style="width:120px" aria-label="Horário de fim no último dia" onchange="resumoMultidias()">
+          </div>
+          <p class="field-hint">Em branco, a reserva ocupa os dias inteiros. Preenchendo, você só pega o equipamento a partir desse horário no primeiro dia e o devolve nesse horário no último — o resto fica livre para outra pessoa.</p>
+          <div id="md-resumo" class="field-hint" style="display:none"></div>
+        </div>
       </div>
       <div class="field">
         <label>Equipamento principal</label>
@@ -1940,6 +1950,12 @@ function openNew(date){
   document.querySelectorAll('.period-pill').forEach(p=>p.classList.remove('sel'));
   document.getElementById('custom-time').style.display='none';
   document.getElementById('multiday-dates').style.display='none';
+  // Horários de reserva longa nascem vazios: em branco significa dia
+  // inteiro. Antes esses campos tinham valor fixo e toda reserva de
+  // vários dias aparecia como se fosse de 08:00 às 12:00.
+  if(document.getElementById('bk-md-start')) document.getElementById('bk-md-start').value='';
+  if(document.getElementById('bk-md-end')) document.getElementById('bk-md-end').value='';
+  const _mdr=document.getElementById('md-resumo'); if(_mdr) _mdr.style.display='none';
   populateUserSelect();
   document.getElementById('combo-section').style.display='none';
   document.getElementById('col-period-section').style.display='none';
@@ -1994,6 +2010,11 @@ function openEdit(id){
   if(b.period==='multidias'){
     document.getElementById('bk-date-start').value=b.dateStart||b.date;
     document.getElementById('bk-date-end').value=b.dateEnd||b.date;
+    const hrEd=horasDaReserva(b);
+    const mdi=document.getElementById('bk-md-start'), mdf=document.getElementById('bk-md-end');
+    if(mdi) mdi.value=hrEd.ini||'';
+    if(mdf) mdf.value=hrEd.fim||'';
+    resumoMultidias();
   }
   populateEqSelect(b.equipment, b.comboColumn, b.colPeriod);
   populateUserSelect(b.user);
@@ -2036,7 +2057,24 @@ function selPeriod(el){
     const d=document.getElementById('bk-date').value;
     document.getElementById('bk-date-start').value=d;
     document.getElementById('bk-date-end').value=d;
+    resumoMultidias();
   }
+}
+
+// Diz em palavras o que os horários opcionais significam. Sem isso,
+// dois campos de hora em branco não contam ao usuário o que fazem.
+function resumoMultidias(){
+  const box=document.getElementById('md-resumo');
+  if(!box) return;
+  const di=document.getElementById('bk-date-start')?.value;
+  const df=document.getElementById('bk-date-end')?.value;
+  const hi=document.getElementById('bk-md-start')?.value;
+  const hf=document.getElementById('bk-md-end')?.value;
+  if(!di||!df||(!hi&&!hf)){ box.style.display='none'; box.textContent=''; return; }
+  const ini=hi?`${fmtBR(di)} às ${hi}`:`${fmtBR(di)} desde o começo do dia`;
+  const fim=hf?`${fmtBR(df)} às ${hf}`:`${fmtBR(df)} até o fim do dia`;
+  box.textContent=`Ocupa de ${ini} até ${fim}.`;
+  box.style.display='block';
 }
 
 function populateEqSelect(sel, preCol, preColPeriod){
@@ -2325,16 +2363,79 @@ function selColPeriod(el){
   document.getElementById('conflict-alert').style.display='none';
 }
 
-function periodsOverlap(p1,s1,e1,p2,s2,e2){
-  if(p1==='diatodo'||p2==='diatodo')return true;
-  // multidias means the booking spans multiple days — on shared dates, treat as diatodo
-  if(p1==='multidias'||p2==='multidias')return true;
-  const range={manha:['08:00','12:00'],tarde:['13:00','17:00'],noite:['17:00','22:00']};
-  const toMins=t=>{ const[h,m]=t.split(':').map(Number);return h*60+m; };
-  const r1=p1==='custom'?[s1,e1]:range[p1];
-  const r2=p2==='custom'?[s2,e2]:range[p2];
-  if(!r1||!r2)return p1===p2;
-  return toMins(r1[1])>toMins(r2[0]) && toMins(r2[1])>toMins(r1[0]);
+// ── Quando uma reserva ocupa o equipamento ────────────────────
+// A comparação era "período contra período", um dia de cada vez. Isso
+// quebrava nas bordas das reservas longas: uma expressão de 02/10 14h a
+// 05/10 08h era tratada como ocupação integral dos quatro dias, então
+// ninguém conseguia usar o shaker na tarde do dia 05 nem na manhã do 02,
+// mesmo com o equipamento livre.
+//
+// Agora cada reserva vira um intervalo contínuo — dia e hora de início
+// até dia e hora de fim — e conflito passa a ser interseção de intervalos.
+// Os dias do meio continuam ocupados por construção, sem caso especial.
+const FAIXAS_PERIODO={manha:['08:00','12:00'],tarde:['13:00','17:00'],
+                      noite:['17:00','22:00'],diatodo:['00:00','24:00']};
+function minutosDoDia(t){
+  if(!t) return null;
+  const [h,m]=String(t).split(':').map(Number);
+  if(!isFinite(h)) return null;
+  return h*60+(isFinite(m)?m:0);
+}
+// Número sequencial do dia, para somar dia e hora num único número
+function indiceDoDia(ds){
+  const [y,m,d]=String(ds||'').split('-').map(Number);
+  if(!isFinite(y)||!isFinite(m)||!isFinite(d)) return NaN;
+  return Math.round(Date.UTC(y,m-1,d)/86400000);
+}
+// Intervalo ocupado, em minutos absolutos. Sem horário informado, a
+// reserva ocupa o dia inteiro — é o padrão de "dia todo" e também de
+// reservas de vários dias em que ninguém especificou horário.
+function janelaOcupada(dias,period,startTime,endTime){
+  if(!dias||!dias.length) return null;
+  const d0=indiceDoDia(dias[0]), dN=indiceDoDia(dias[dias.length-1]);
+  if(!isFinite(d0)||!isFinite(dN)) return null;
+  let ini=0, fim=1440;
+  if(dias.length===1){
+    // Um dia só: vale a faixa do período escolhido.
+    const f = period==='custom'
+      ? ((startTime&&endTime&&startTime<endTime)?[startTime,endTime]:null)
+      : FAIXAS_PERIODO[period];
+    if(f){ ini=minutosDoDia(f[0]); fim=minutosDoDia(f[1]); }
+  }else{
+    // Vários dias: o horário de início vale no primeiro dia e o de fim
+    // no último. Fim em 00:00 conta como dia inteiro, não como nada.
+    const mi=minutosDoDia(startTime), mf=minutosDoDia(endTime);
+    if(mi!=null) ini=mi;
+    if(mf!=null&&mf>0) fim=mf;
+  }
+  return {ini:d0*1440+ini, fim:dN*1440+fim};
+}
+// Horário real de uma reserva. Reservas de vários dias salvas antes
+// desta correção guardaram 08:00 e 12:00 sem ninguém ter escolhido —
+// vinham de um campo oculto na tela. Sem a marca 'horasExplicitas',
+// esse par é ignorado e a reserva volta a ocupar os dias inteiros, que
+// é o que a pessoa quis dizer ao marcar "mais de um dia".
+function horasDaReserva(b){
+  if(!b) return {ini:null,fim:null};
+  const fim=(isShakerEq(b.equipment)&&b.shakerEndTime)?b.shakerEndTime:b.endTime;
+  if(b.period==='multidias'&&!b.horasExplicitas) return {ini:null,fim:null};
+  return {ini:b.startTime||null, fim:fim||null};
+}
+
+// O fim vem depois do início, olhando data E hora. Era isso que
+// faltava: quem deixa material no shaker por três dias a partir das
+// 14 h termina num horário "menor" que o de início, e a validação
+// antiga — que só comparava as horas — barrava a reserva.
+function fimDepoisDoInicio(dataIni,horaIni,dataFim,horaFim){
+  if(!dataIni||!dataFim) return false;
+  return `${dataFim}T${horaFim||'00:00'}` > `${dataIni}T${horaIni||'00:00'}`;
+}
+
+// Duas ocupações se cruzam no tempo?
+function conflitaNoTempo(diasA,pA,sA,eA,diasB,pB,sB,eB){
+  const A=janelaOcupada(diasA,pA,sA,eA), B=janelaOcupada(diasB,pB,sB,eB);
+  if(!A||!B) return false;
+  return A.ini < B.fim && B.ini < A.fim;
 }
 
 function dateRange(start,end){
@@ -2373,12 +2474,28 @@ function rotuloPeriodo(b){
   const dias=datasDaReserva(b);
   if(dias.length>1){
     const ini=dias[0], fim=dias[dias.length-1];
-    const h1=b.startTime?' '+b.startTime:'';
-    const h2=(isShakerEq(b.equipment)&&b.shakerEndTime)?' '+b.shakerEndTime:(b.endTime?' '+b.endTime:'');
+    const hr=horasDaReserva(b);
+    const h1=hr.ini?' '+hr.ini:'';
+    const h2=hr.fim?' '+hr.fim:'';
     return `${fmtBR(ini)}${h1} → ${fmtBR(fim)}${h2} · ${dias.length} dias`;
   }
   if(b.period==='custom'&&b.startTime&&b.endTime) return `${b.startTime}–${b.endTime}`;
   return PERIODOS[b.period]||b.period||'';
+}
+
+// O que uma reserva longa ocupa de UM dia específico. Serve para a
+// agenda dizer que a borda está parcialmente livre — foi justamente
+// isso que faltou quando o pessoal achou que o equipamento estava
+// tomado o dia inteiro e não entendeu o bloqueio.
+function ocupacaoNoDia(b, ds){
+  const dias=datasDaReserva(b);
+  if(dias.length<2||!dias.includes(ds)) return null;
+  const primeiro=ds===dias[0], ultimo=ds===dias[dias.length-1];
+  const hr=horasDaReserva(b);
+  const hi=hr.ini, hf=hr.fim;
+  if(primeiro&&!ultimo&&hi&&hi!=='00:00') return `a partir das ${hi}`;
+  if(ultimo&&!primeiro&&hf&&hf!=='00:00') return `até as ${hf}`;
+  return null;
 }
 
 function getEffectiveDates(period, mainDate, dateStart, dateEnd){
@@ -2451,10 +2568,6 @@ function prevDayNext(ds){ // dia seguinte a ds
 
 function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,colDateStart,colDateEnd,equilON,shakerEndDate){
   const aktaDates = datasDoEquipamento(eq,period,date,dateStart,dateEnd,shakerEndDate);
-  // Quando a reserva cobre mais de um dia, nos dias compartilhados o
-  // equipamento está ocupado o tempo todo — comparar faixas de horário
-  // liberaria indevidamente a madrugada dos dias intermediários.
-  const periodoA = aktaDates.length>1 ? 'multidias' : period;
   // Effective column period
   const effColPeriod = col ? getEffectivePeriod(period,colPeriod) : null;
   const colDates = col ? getEffectiveDates(
@@ -2467,7 +2580,7 @@ function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,
     if(b.id===excId)continue;
     if(b.rejected)continue; // recusada não ocupa o equipamento
     const bAktaDates = datasDaReserva(b);
-    const periodoB = bAktaDates.length>1 ? 'multidias' : b.period;
+    const bHr = horasDaReserva(b);
     const bEffColPeriod = b.comboColumn ? getEffectivePeriod(b.period,b.colPeriod) : null;
     const bColDates = b.comboColumn ? getEffectiveDates(
       bEffColPeriod||b.period, b.date,
@@ -2475,25 +2588,22 @@ function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,
       (b.colPeriod==='multidias')?b.colDateEnd:b.dateEnd
     ) : [];
 
-    // Check AKTA vs AKTA conflict
-    const aktaDateOverlap = aktaDates.some(d=>bAktaDates.includes(d));
-    if(aktaDateOverlap && periodsOverlap(periodoA,s,e,periodoB,b.startTime,b.endTime)){
-      if(b.equipment===eq) return `${eqNameEsc(eq)} já reservado neste período por ${esc(b.user)}.`;
-    }
+    // Equipamento principal contra equipamento principal
+    const choqueEq = conflitaNoTempo(aktaDates,period,s,e,bAktaDates,b.period,bHr.ini,bHr.fim);
+    if(choqueEq && b.equipment===eq)
+      return `${eqNameEsc(eq)} já reservado neste período por ${esc(b.user)}.`;
 
     // Check column conflicts (use column's own period/dates)
     if(col){
       // New col vs existing AKTA's col
       if(b.comboColumn===col){
         const bcp=bEffColPeriod||b.period;
-        const colDateOvlp=colDates.some(d=>bColDates.includes(d));
-        if(colDateOvlp&&periodsOverlap(effColPeriod,s,e,bcp,b.startTime,b.endTime))
+        if(conflitaNoTempo(colDates,effColPeriod,s,e,bColDates,bcp,bHr.ini,bHr.fim))
           return `${eqNameEsc(col)} já está reservada neste período por ${esc(b.user)}.`;
       }
       // New col vs existing standalone col booking
       if(b.equipment===col){
-        const colDateOvlp=colDates.some(d=>bAktaDates.includes(d));
-        if(colDateOvlp&&periodsOverlap(effColPeriod,s,e,b.period,b.startTime,b.endTime))
+        if(conflitaNoTempo(colDates,effColPeriod,s,e,bAktaDates,b.period,bHr.ini,bHr.fim))
           return `${eqNameEsc(col)} já reservada neste período por ${esc(b.user)}.`;
       }
     }
@@ -2503,31 +2613,28 @@ function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,
     if(col&&col!=='_cromatografia'&&equilON&&colDates.length){
       const myEquilDate=prevDay(colDates[0]);
       // minha véspera x coluna que o outro já usa naquele dia
-      if(b.comboColumn===col&&bColDates.includes(myEquilDate)&&periodsOverlap('noite',null,null,bEffColPeriod||b.period,b.startTime,b.endTime))
+      if(b.comboColumn===col&&conflitaNoTempo([myEquilDate],'noite',null,null,bColDates,bEffColPeriod||b.period,bHr.ini,bHr.fim))
         return `${eqNameEsc(col)} está reservada em ${fmtBR(myEquilDate)} por ${esc(b.user)} — não é possível equilibrar na noite anterior.`;
-      if(b.equipment===col&&bAktaDates.includes(myEquilDate)&&periodsOverlap('noite',null,null,b.period,b.startTime,b.endTime))
+      if(b.equipment===col&&conflitaNoTempo([myEquilDate],'noite',null,null,bAktaDates,b.period,bHr.ini,bHr.fim))
         return `${eqNameEsc(col)} está reservada em ${fmtBR(myEquilDate)} por ${esc(b.user)} — não é possível equilibrar na noite anterior.`;
       // minha véspera x véspera de outra reserva
       if(bEquil&&bEquil.col===col&&bEquil.date===myEquilDate)
         return `${eqNameEsc(col)} já está em equilibração na noite de ${fmtBR(myEquilDate)} por ${esc(b.user)}.`;
     }
     // véspera de outra reserva x minha reserva da coluna
-    if(bEquil&&col&&bEquil.col===col&&colDates.includes(bEquil.date)&&periodsOverlap(effColPeriod,s,e,'noite',null,null))
+    if(bEquil&&col&&bEquil.col===col&&conflitaNoTempo(colDates,effColPeriod,s,e,[bEquil.date],'noite',null,null))
       return `${eqNameEsc(col)} estará em equilibração na noite de ${fmtBR(bEquil.date)} para a reserva de ${esc(b.user)}.`;
-    if(bEquil&&bEquil.col===eq&&aktaDates.includes(bEquil.date)&&periodsOverlap(period,s,e,'noite',null,null))
+    if(bEquil&&bEquil.col===eq&&conflitaNoTempo(aktaDates,period,s,e,[bEquil.date],'noite',null,null))
       return `${eqNameEsc(eq)} estará em equilibração na noite de ${fmtBR(bEquil.date)} para a reserva de ${esc(b.user)}.`;
 
     // Check if new booking is a column and conflicts with existing
     const eObj=eqById(eq);
     if(eObj&&eObj.cat==='coluna'){
-      if(b.equipment===eq){
-        if(aktaDateOverlap&&periodsOverlap(period,s,e,b.period,b.startTime,b.endTime))
-          return `${eqNameEsc(eq)} já reservada neste período por ${esc(b.user)}.`;
-      }
+      if(b.equipment===eq&&choqueEq)
+        return `${eqNameEsc(eq)} já reservada neste período por ${esc(b.user)}.`;
       if(b.comboColumn===eq){
         const bcp=bEffColPeriod||b.period;
-        const aktaColDateOvlp=aktaDates.some(d=>bColDates.includes(d));
-        if(aktaColDateOvlp&&periodsOverlap(period,s,e,bcp,b.startTime,b.endTime))
+        if(conflitaNoTempo(aktaDates,period,s,e,bColDates,bcp,bHr.ini,bHr.fim))
           return `${eqNameEsc(eq)} já está vinculada a ${eqNameEsc(b.equipment)} por ${esc(b.user)}.`;
       }
     }
@@ -2595,15 +2702,19 @@ async function saveBooking(){
   const shakerTempChange=shakerOvernight?document.getElementById('bk-tempchange').value||null:null;
   const e=eqById(eq);
   const col=(e&&e.cat==='akta')?document.getElementById('bk-col').value||null:null;
-  // Para shaker, início e fim vêm dos campos da expressão. Antes o fim
-  // vinha de 'bk-end', campo que fica oculto nesse caso — e a reserva
-  // ficava gravada como 09:00–12:00 mesmo durando dias.
+  // Cada tipo de reserva tem o seu par de campos de horário. Ler sempre
+  // 'bk-start'/'bk-end' — que ficam ocultos nos outros casos — era a
+  // origem dos "09:00 às 12:00" que apareciam em reservas de vários dias.
   const st=isShaker
     ? (document.getElementById('bk-shaker-start-time')?.value||'09:00')
-    : document.getElementById('bk-start').value;
+    : selectedPeriod==='multidias'
+      ? (document.getElementById('bk-md-start')?.value||null)
+      : document.getElementById('bk-start').value;
   const en=isShaker
     ? (document.getElementById('bk-endtime')?.value||'09:00')
-    : document.getElementById('bk-end').value;
+    : selectedPeriod==='multidias'
+      ? (document.getElementById('bk-md-end')?.value||null)
+      : document.getElementById('bk-end').value;
   const dateStart=document.getElementById('bk-date-start').value;
   const dateEnd=document.getElementById('bk-date-end').value;
   const colDateStart=document.getElementById('bk-col-date-start').value;
@@ -2613,9 +2724,22 @@ async function saveBooking(){
   const mainDate = selectedPeriod==='multidias' ? dateStart : date;
 
   if(!selectedPeriod){ showConflict('Selecione o período da reserva antes de salvar.'); return; }
-  if(selectedPeriod==='custom'&&st>=en){ showConflict('O horário de início deve ser anterior ao horário de fim.'); return; }
+
+  // Para o shaker, a comparação é data+hora: o fim pode cair num
+  // horário menor que o de início, desde que seja num dia posterior.
+  const inicioEmShaker=isShaker?(document.getElementById('bk-shaker-start-date')?.value||date):null;
+  if(isShaker){
+    if(!inicioEmShaker||!shakerEndDate){
+      showConflict('Informe quando a expressão começa e quando termina.'); return; }
+    if(!fimDepoisDoInicio(inicioEmShaker,st,shakerEndDate,shakerEndTime)){
+      showConflict('O fim da expressão precisa ser depois do início. Para atravessar a madrugada, escolha uma data de fim posterior.'); return; }
+  } else if(selectedPeriod==='custom'&&st>=en){
+    showConflict('O horário de início deve ser anterior ao horário de fim. Para atravessar a meia-noite, escolha o período "Mais de um dia".'); return;
+  }
   if(selectedPeriod==='multidias'&&(!dateStart||!dateEnd)){ showConflict('Informe a data de início e a data de fim para reservas de múltiplos dias.'); return; }
   if(selectedPeriod==='multidias'&&dateEnd<dateStart){ showConflict('A data de fim deve ser posterior à data de início.'); return; }
+  if(selectedPeriod==='multidias'&&dateEnd===dateStart&&st&&en&&st>=en){
+    showConflict('Começo e fim caem no mesmo dia: o horário de início tem de ser anterior ao de fim.'); return; }
   if(col&&col!=='_cromatografia'&&!selectedColPeriod){ showConflict('Você selecionou uma coluna — escolha também o período de uso dela.'); return; }
   // Shaker capacity warning
   if(isShaker&&shakerVolume){
@@ -2700,6 +2824,9 @@ Deseja continuar?`))return;
     dateStart:selectedPeriod==='multidias'?dateStart:null,
     dateEnd:selectedPeriod==='multidias'?dateEnd:null,
     startTime:st,endTime:en,
+    // Marca que os horários foram escolhidos de propósito. Reservas de
+    // vários dias sem esta marca ocupam os dias inteiros (ver horasDaReserva).
+    horasExplicitas: selectedPeriod==='multidias' ? !!(st||en) : true,
     equipment:eq,
     comboColumn:col||null,
     equilON:document.getElementById('bk-equil-on')?.checked||false,
@@ -2848,10 +2975,9 @@ function renderReservas(){
     const e=eqById(b.equipment);
     const cat=e?e.cat:'outro';
     const colInfo=b.comboColumn?(b.comboColumn==='_cromatografia'?'<span class="badge badge-other" style="font-size:10px">Só cromatografia</span>':`<span class="badge badge-col" style="font-size:10px">+ ${eqNameEsc(b.comboColumn)}${b.equilON?' '+ico('moon','ico-xs')+' ON':''}  </span>`):'';
-    let time;
-    if(b.period==='custom') time=`${b.startTime}–${b.endTime}`;
-    else if(b.period==='multidias'&&b.dateStart&&b.dateEnd) time=`${fmtBR(b.dateStart)} até ${fmtBR(b.dateEnd)}`;
-    else time=rotuloPeriodo(b);
+    // Um único lugar monta o rótulo. Quando essa lista montava o seu
+    // próprio, uma expressão de quatro dias aparecia como "09:00–09:00".
+    const time=rotuloPeriodo(b);
     let colTime='';
     if(b.comboColumn&&b.colPeriod&&b.colPeriod!=='mesmo'){
       if(b.colPeriod==='multidias'&&b.colDateStart&&b.colDateEnd)
@@ -3809,8 +3935,8 @@ function exportCSV(){
       b.shakerEndDate||'',
       b.shakerEndTime||'',
       rotuloPeriodo(b),
-      b.period==='custom'?b.startTime:'',
-      b.period==='custom'?b.endTime:'',
+      horasDaReserva(b).ini||'',
+      horasDaReserva(b).fim||'',
       b.notes||''
     ]);
   });
@@ -3860,11 +3986,13 @@ function openDayPopup(ds){
       const e=eqById(b.equipment);
       const cat=e?e.cat:'outro';
       const time=rotuloPeriodo(b);
+      const ocup=ocupacaoNoDia(b,ds);
       return `<div class="day-bk-item" onclick="closeDayPopup();openEdit('${b.id}')">
         <div class="day-bk-top">
           ${b.bookingType==='manutencao'?`<span class="badge badge-manut">${ico('wrench','ico-xs')} Manutenção</span>`:''}
           <span class="badge ${eqBadge(cat)||'badge-other'}">${eqNameEsc(b.equipment)}</span>
           ${b.comboColumn?`<span class="badge badge-col" style="font-size:10px">+ ${eqNameEsc(b.comboColumn)}</span>`:''}
+          ${ocup?`<span class="badge badge-other" style="font-size:10px">Neste dia: ${esc(ocup)}</span>`:''}
         </div>
         ${b.protein?`<div style="margin-bottom:4px"><span class="protocol-badge">${ico('flask','ico-xs')} ${esc(b.protein)}</span></div>`:''}
         ${b.shakerErlens||b.shakerTemp1?`<div style="margin-bottom:4px">${b.shakerErlens?`<span class="badge-shaker">${ico('layers','ico-xs')} ${b.shakerErlens} erlens</span> `:''}${b.shakerVolume?`<span class="badge-shaker">${esc(b.shakerVolume)}L</span> `:''}${b.shakerTemp1?`<span class="badge-shaker">${b.shakerTemp1}°C${b.shakerOvernight&&b.shakerTemp2?' → '+b.shakerTemp2+'°C ON':''}</span>`:''}${b.shakerTempChange?` <span style="font-size:11px;color:var(--text2)">troca às ${b.shakerTempChange}</span>`:''}</div>`:''}
