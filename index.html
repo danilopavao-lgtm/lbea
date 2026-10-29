@@ -342,13 +342,16 @@ select option{background:var(--bg2);color:var(--text)}
 .cal-cell.dim .day-n{color:var(--text3)}
 .day-n{font-size:12px;font-weight:600;width:20px;height:20px;display:flex;align-items:center;justify-content:center;margin-bottom:2px;flex-shrink:0}
 .cal-cell.today .day-n{background:var(--blue);color:#fff;border-radius:50%}
-.ev{--ev-cor:var(--gray);font-size:10.5px;padding:1px 4px 1px 5px;
-  border-radius:2px;margin-bottom:2px;line-height:1.45;white-space:nowrap;
+.ev{--ev-cor:var(--gray);font-size:10.5px;padding:0 4px 0 5px;
+  border-radius:2px;margin-bottom:1px;line-height:1.5;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block;
   color:var(--text);border-left:3px solid var(--ev-cor);
   background:color-mix(in srgb,var(--ev-cor) 13%,transparent);flex:none}
 .ev-akta{--ev-cor:var(--blue)}
 .ev-col{--ev-cor:var(--green)}
+/* Equilibração: ocupa só parte da noite, então não pode parecer igual a
+   uma reserva cheia de coluna. Tarja pontilhada e texto em itálico. */
+.ev-equil{--ev-cor:var(--green);border-left-style:dotted;border-left-width:4px;font-style:italic}
 .ev-itc{--ev-cor:var(--amber)}
 .ev-other{--ev-cor:var(--gray)}
 .ev-manut{--ev-cor:var(--amber);font-style:italic}
@@ -447,8 +450,12 @@ select option{background:var(--bg2);color:var(--text)}
   .day-n{font-size:var(--fs-caption);width:22px;height:22px}
   .ev{font-size:10px;padding:2px 4px;line-height:1.3}
   .cal-head{font-size:11px;padding:6px 2px}
-  .cal-header h2{font-size:var(--fs-headline)}
-  .cal-header{gap:var(--sp2);flex-wrap:wrap}
+  .cal-header h2{font-size:var(--fs-headline);flex:none}
+  .cal-header{gap:6px;flex-wrap:nowrap}
+  .cal-header #cal-bk-count{display:none}      /* a contagem não cabe e não é essencial */
+  .cal-header .btn-primary .rotulo-longo{display:none}
+  .cal-header .btn-primary{padding-left:10px;padding-right:12px}
+  .cal-legenda{gap:3px 10px;font-size:10px}
   /* Modais viram folhas que sobem de baixo */
   .overlay,.day-popup,.eq-detail{padding:0;align-items:flex-end}
   .modal,.day-popup-box,.eq-detail-box{max-width:100%;border-radius:var(--radius-lg) var(--radius-lg) 0 0;
@@ -761,7 +768,7 @@ select option{background:var(--bg2);color:var(--text)}
           <span id="cal-bk-count" style="font-size:12px;color:var(--text2);font-weight:400"></span>
           <button class="btn btn-primary btn-sm" onclick="openNew(null)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            Nova reserva
+            Nova<span class="rotulo-longo">&nbsp;reserva</span>
           </button>
         </div>
         <div class="cal-grid" id="cal-grid"></div>
@@ -770,6 +777,7 @@ select option{background:var(--bg2);color:var(--text)}
           <span style="--lg-cor:var(--green)"><i></i>Coluna</span>
           <span style="--lg-cor:var(--amber)"><i></i>ITC</span>
           <span style="--lg-cor:var(--gray)"><i></i>Outros</span>
+          <span style="--lg-cor:var(--green)"><i style="border-left:3px dotted var(--green);background:color-mix(in srgb,var(--green) 13%,transparent);border-radius:2px;width:11px"></i>Equilibração noturna</span>
           <span style="--lg-cor:var(--amber)"><i style="border:1px dashed var(--amber);background:transparent"></i>Aguardando aprovação</span>
         </div>
       </div>
@@ -1174,7 +1182,12 @@ select option{background:var(--bg2);color:var(--text)}
               Equilibrar coluna overnight (noite anterior)
             </label>
             <div id="equil-on-info" style="display:none;background:var(--blue-light);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:12px;color:var(--blue-dark);line-height:1.5">
-              <svg class="ico ico-sm"><use href="#i-moon"/></svg> A coluna fica bloqueada para outros usuários na noite anterior (17h–22h) e aparece no calendário nesse dia.
+              <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+                <svg class="ico ico-sm"><use href="#i-moon"/></svg>
+                <span>Montar a coluna a partir das</span>
+                <input type="time" id="bk-equil-time" value="17:00" style="width:104px" onchange="atualizarAvisoEquil()">
+              </div>
+              <div id="equil-on-texto"></div>
             </div>
             <div id="col-docs-hint" style="display:none"></div>
             <div class="field">
@@ -1895,13 +1908,32 @@ function bksForDate(ds){
 // tela, então basta consultar a largura na hora de montar.
 function telaEstreita(){ return window.innerWidth < 640; }
 
+// Quantos chips cabem numa célula, MEDINDO os elementos já desenhados.
+// A primeira versão disto chutava 19px por chip e 24px pelo número do
+// dia. Em aparelho com texto maior a conta estourava e a célula cortava
+// os chips pela metade — e os meus testes não pegaram, porque validavam
+// o chute contra ele mesmo. Medido, funciona em qualquer zoom ou tamanho
+// de fonte do sistema.
 function chipsQueCabem(){
-  const g=document.getElementById('cal-grid');
-  const alturaGrade=g?g.clientHeight:0;
-  if(!alturaGrade) return 3;
-  const linha=(alturaGrade-30)/6;   // 30 ≈ faixa dos dias da semana
-  const sobra=linha-24;             // número do dia e respiro
-  return Math.max(2, Math.min(10, Math.floor(sobra/19)));
+  // Mede a partir de um chip existente, não da primeira célula: o começo
+  // do mês costuma estar vazio e não haveria o que medir.
+  const chip=document.querySelector('.cal-cell .ev');
+  const cel=chip&&chip.closest('.cal-cell');
+  const dia=cel&&cel.querySelector('.day-n');
+  if(!cel||!cel.clientHeight) return 0;   // 0 = ainda não dá para medir
+  const alturaDe=el=>{
+    const e=getComputedStyle(el);
+    return el.offsetHeight+(parseFloat(e.marginBottom)||0)+(parseFloat(e.marginTop)||0);
+  };
+  const estilo=getComputedStyle(cel);
+  const util=cel.clientHeight
+           -(parseFloat(estilo.paddingTop)||0)
+           -(parseFloat(estilo.paddingBottom)||0)
+           -(dia?alturaDe(dia):0)
+           -1;                                    // folga de arredondamento
+  const altChip=alturaDe(chip);
+  if(!altChip) return 0;
+  return Math.max(1, Math.min(12, Math.floor(util/altChip)));
 }
 
 function irParaHoje(){
@@ -1921,7 +1953,8 @@ function renderCalendar(){
   const first=new Date(calYear,calMonth,1).getDay();
   const total=new Date(calYear,calMonth+1,0).getDate();
   const today=fmtDate(new Date());
-  const lim=chipsQueCabem();
+  const medido=chipsQueCabem();
+  const lim=medido||_limCal||3;   // sem medida ainda, monta para poder medir
   for(let i=0;i<first;i++){
     const dt=new Date(calYear,calMonth,1-first+i);
     html+=calCell(dt,true,today,lim);
@@ -1934,15 +1967,18 @@ function renderCalendar(){
     html+=calCell(new Date(calYear,calMonth+1,i),true,today,lim);
   }
   grid.innerHTML=html;
-  // A grade pode não ter altura na hora da montagem (página abrindo, aba
-  // escondida). Remede e refaz uma vez, agora com a medida de verdade.
+  // Agora que há elementos na tela, mede de verdade. Se a montagem usou
+  // outro número, refaz uma vez só — a guarda evita laço infinito.
   if(!_remedindoCal){
     _remedindoCal=true;
-    if(chipsQueCabem()!==lim) renderCalendar();
+    const real=chipsQueCabem();
+    if(real&&real!==lim){ _limCal=real; renderCalendar(); }
+    else if(real) _limCal=real;
     _remedindoCal=false;
   }
 }
 let _remedindoCal=false;
+let _limCal=0;   // última medida boa, reaproveitada entre montagens
 
 // Mudou o tamanho da janela, muda quantas reservas cabem por dia.
 let _calTimer=null;
@@ -1962,15 +1998,25 @@ function calCell(dt,dim,today,maxChips){
   const lim=maxChips||2;
   // Quando há mais do que cabe, um dos lugares vai para a linha do "+N":
   // sem isso ela é empurrada para fora da célula e ninguém fica sabendo
-  // que o dia tem mais reservas.
-  const visiveis = bks.length>lim ? Math.max(1,lim-1) : lim;
+  // que o dia tem mais reservas. E se só cabe UMA linha, ela vira o
+  // resumo do dia — "5 reservas" informa mais que um chip solto sem aviso.
+  const visiveis = bks.length>lim ? (lim>=2 ? lim-1 : 0) : bks.length;
   const short=id=>eqName(id).replace('ÄKTA ','').replace('Superdex ','Sdx ').replace('Superose ','Srose ').replace('Shaker ','').replace('Termociclador ','TC ').replace('PEAQ-ITC','ITC');
   bks.slice(0,visiveis).forEach(b=>{
     const userShort=esc(b.user.split(' ')[0]);
     const eSlot=equilSlot(b);
     // Neste dia a reserva aparece só por causa da equilibração da véspera
     if(eSlot&&eSlot.date===ds&&b.date!==ds){
-      chips+=`<div class="ev ev-col" title="${esc(b.user)} — ${eqNameEsc(eSlot.col)} em equilibração para ${fmtBR(b.date)}">${ico('moon','ico-xs')} ${short(eSlot.col)}</div>`;
+      // Chip distinto do de coluna normal: aqui o equipamento só fica
+      // ocupado a partir da hora escolhida, e quem olha de relance
+      // precisa ver isso sem abrir nada.
+      // Hora ANTES do nome da coluna: o nome é longo e, vindo primeiro,
+      // a truncagem comia justamente o horário — que é o dado que diz
+      // até quando o equipamento continua livre.
+      const rot=telaEstreita()
+        ? `Equil. ${eSlot.horaIni}→`
+        : `Equil. ${eSlot.horaIni}→ ${short(eSlot.col)}`;
+      chips+=`<div class="ev ev-equil" title="${esc(b.user)} — equilibrando ${eqNameEsc(eSlot.col)} em ${eqNameEsc(eSlot.eq)} a partir das ${esc(eSlot.horaIni)}, para a corrida de ${fmtBR(b.date)}">${ico('moon','ico-xs')} ${rot}</div>`;
       return;
     }
     const e=eqById(b.equipment);
@@ -1984,10 +2030,13 @@ function calCell(dt,dim,today,maxChips){
     const tooltip=esc(b.user+' — '+eqName(b.equipment)+(b.protein?' ('+b.protein+')':''));
     chips+=`<div class="ev ${evCls}" title="${tooltip}">${evLabel}</div>`;
   });
-  if(bks.length>visiveis) chips+=`<div class="ev-more">+${bks.length-visiveis} mais</div>`;
+  if(bks.length>visiveis) chips+= visiveis===0
+    ? `<div class="ev-more">${bks.length} reserva${bks.length>1?'s':''}</div>`
+    : `<div class="ev-more">+${bks.length-visiveis} mais</div>`;
   // Click opens day popup; if no bookings, goes straight to new booking
   const clickFn = bks.length>0 ? `openDayPopup('${ds}')` : `openNew('${ds}')`;
-  return `<div class="cal-cell${dim?' dim':''}" onclick="${clickFn}"><div class="day-n"${dnClass}>${dt.getDate()}</div>${chips}</div>`;
+  const ocultas=Math.max(0,bks.length-visiveis);
+  return `<div class="cal-cell${dim?' dim':''}" data-ocultas="${ocultas}" onclick="${clickFn}"><div class="day-n"${dnClass}>${dt.getDate()}</div>${chips}</div>`;
 }
 
 // ═══════════════════════════════════════════════════
@@ -2021,6 +2070,8 @@ function openNew(date){
   document.getElementById('shaker-section').style.display='none';
   const equilCb=document.getElementById('bk-equil-on');
   if(equilCb){ equilCb.checked=false; }
+  const equilT0=document.getElementById('bk-equil-time');
+  if(equilT0) equilT0.value=EQUIL_PADRAO;
   const equilInfo=document.getElementById('equil-on-info');
   if(equilInfo){ equilInfo.style.display='none'; }
   if(document.getElementById('bk-shaker-start-date')) document.getElementById('bk-shaker-start-date').value='';
@@ -2118,6 +2169,8 @@ function openEdit(id){
   if(document.getElementById('bk-shaker-start-date')) document.getElementById('bk-shaker-start-date').value=b.date||b.shakerStartDate||'';
   if(document.getElementById('bk-shaker-start-time')) document.getElementById('bk-shaker-start-time').value=b.startTime||'09:00';
   const equilCb=document.getElementById('bk-equil-on');
+  const equilT=document.getElementById('bk-equil-time');
+  if(equilT) equilT.value=b.equilStart||EQUIL_PADRAO;
   if(equilCb){ equilCb.checked=!!b.equilON; toggleEquilON(equilCb); }
   calcExpDuration();
   const isON=!!b.shakerOvernight;
@@ -2194,6 +2247,21 @@ function syncUserSelects(){
 
 function toggleEquilON(cb){
   document.getElementById('equil-on-info').style.display=cb.checked?'block':'none';
+  atualizarAvisoEquil();
+}
+
+// Diz, em palavras, exatamente o que a equilibração vai ocupar. Antes o
+// aviso falava só da coluna e de uma faixa fixa de 17h–22h, que não era
+// o que acontecia na bancada.
+function atualizarAvisoEquil(){
+  const box=document.getElementById('equil-on-texto');
+  if(!box) return;
+  const h=document.getElementById('bk-equil-time')?.value||EQUIL_PADRAO;
+  const col=document.getElementById('bk-col')?.value;
+  const eq=document.getElementById('bk-eq')?.value;
+  const nomes=[col&&col!=='_cromatografia'?eqName(col):null, eq?eqName(eq):null].filter(Boolean);
+  box.textContent=`${nomes.join(' e ')} ficam ocupados da véspera, a partir das ${h}, `
+    +`até o início da sua corrida no dia seguinte. Antes das ${h} o equipamento segue livre para outra pessoa.`;
 }
 
 function toggleOvernight(cb){
@@ -2433,6 +2501,7 @@ function mostrarDicaColuna(colId){
 function onColChange(preColPeriod){
   const col=document.getElementById('bk-col').value;
   mostrarDicaColuna(col);
+  atualizarAvisoEquil();   // o aviso nomeia a coluna; trocar a coluna muda o texto
   const sec=document.getElementById('col-period-section');
   // Only show period section for real columns, not special options
   sec.style.display=(col&&col!=='_cromatografia')?'block':'none';
@@ -2567,13 +2636,61 @@ function prevDay(ds){
   return fmtDate(dt);
 }
 // Data e período da noite de equilibração de uma reserva (ou null)
+// Primeiro minuto em que um período começa a ocupar o equipamento.
+// É onde a equilibração termina: ela vai da véspera até o começo da corrida.
+function horaInicioDe(period, startTime){
+  if(period==='custom') return startTime||'08:00';
+  const f=FAIXAS_PERIODO[period];
+  return f?f[0]:'00:00';
+}
+
+const EQUIL_PADRAO='17:00';   // fim de tarde, quando o pessoal costuma montar
+
+// A noite de equilibração, como intervalo de verdade.
+//
+// Antes isto era uma faixa solta de 17h às 22h, e só na coluna. Duas
+// consequências: o ÄKTA ficava livre justamente enquanto bombeava tampão
+// na coluna de outra pessoa, e a madrugada inteira aparecia desocupada.
+// Agora é um intervalo contínuo — da hora escolhida na véspera até o
+// início da corrida no dia seguinte — e ocupa a coluna E o ÄKTA.
 function equilSlot(b){
   if(!b||!b.equilON||!b.comboColumn||b.comboColumn==='_cromatografia') return null;
   const eff=getEffectivePeriod(b.period,b.colPeriod);
   const first=getEffectiveDates(eff,b.date,
     (b.colPeriod==='multidias')?b.colDateStart:b.dateStart,
     (b.colPeriod==='multidias')?b.colDateEnd:b.dateEnd)[0];
-  return first?{date:prevDay(first), period:'noite', col:b.comboColumn}:null;
+  if(!first) return null;
+  const hr=horasDaReserva(b);
+  return {
+    date: prevDay(first),          // dia em que a equilibração aparece
+    period: 'noite',               // mantido: código antigo ainda lê isto
+    col: b.comboColumn,
+    eq: b.equipment,               // o ÄKTA também fica ocupado
+    dias: [prevDay(first), first],
+    horaIni: b.equilStart||EQUIL_PADRAO,
+    horaFim: horaInicioDe(eff, hr.ini)
+  };
+}
+
+// O mesmo intervalo para uma reserva que ainda está sendo montada na tela
+function equilEmMontagem(eq, col, colDates, effColPeriod, horaCorrida, equilStart){
+  if(!col||col==='_cromatografia'||!colDates||!colDates.length) return null;
+  const first=colDates[0];
+  return {
+    col, eq,
+    date: prevDay(first),
+    dias: [prevDay(first), first],
+    horaIni: equilStart||EQUIL_PADRAO,
+    horaFim: horaInicioDe(effColPeriod, horaCorrida)
+  };
+}
+
+// Dois equipamentos que a equilibração segura
+const equipDaEquil = e => [e.col, e.eq].filter(x=>x&&x!=='_cromatografia');
+
+// A equilibração colide com a ocupação de alguma reserva existente?
+function equilBateCom(je, dias, period, ini, fim){
+  return conflitaNoTempo(je.dias,'multidias',je.horaIni,je.horaFim, dias, period, ini, fim);
 }
 
 // Rótulo do período, em um lugar só. Antes estava copiado em cinco funções.
@@ -2595,6 +2712,18 @@ function rotuloPeriodo(b){
   }
   if(b.period==='custom'&&b.startTime&&b.endTime) return `${b.startTime}–${b.endTime}`;
   return PERIODOS[b.period]||b.period||'';
+}
+
+// O que esta reserva é do ponto de vista DESTE dia. Na véspera de uma
+// equilibração a reserva aparece no calendário, mas o rótulo normal
+// mostrava o período da corrida do dia seguinte — quem abria o dia 29
+// lia "Manhã" e não tinha como saber que era só a coluna montando.
+function rotuloNoDia(b, ds){
+  const es=equilSlot(b);
+  if(es&&es.date===ds&&b.date!==ds)
+    return `${ico('moon','ico-xs')} Equilibração de ${eqNameEsc(es.col)} em ${eqNameEsc(es.eq)}`
+         + ` — das ${esc(es.horaIni)} até a corrida de ${fmtBR(b.date)}`;
+  return rotuloPeriodo(b);
 }
 
 // O que uma reserva longa ocupa de UM dia específico. Serve para a
@@ -2691,7 +2820,7 @@ function prevDayNext(ds){ // dia seguinte a ds
   return fmtDate(dt);
 }
 
-function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,colDateStart,colDateEnd,equilON,shakerEndDate){
+function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,colDateStart,colDateEnd,equilON,shakerEndDate,equilStart){
   const aktaDates = datasDoEquipamento(eq,period,date,dateStart,dateEnd,shakerEndDate);
   // Effective column period
   const effColPeriod = col ? getEffectivePeriod(period,colPeriod) : null;
@@ -2733,24 +2862,35 @@ function checkConflict(date,period,s,e,eq,col,excId,dateStart,dateEnd,colPeriod,
       }
     }
 
-    // Noite de equilibração: ocupa a coluna na véspera
+    // ── Noite de equilibração ──────────────────────────────
+    // Segura a coluna E o ÄKTA, da hora escolhida na véspera até o
+    // início da corrida no dia seguinte. Antes só a coluna era travada,
+    // e o ÄKTA ficava livre justamente enquanto bombeava tampão nela.
     const bEquil=equilSlot(b);
-    if(col&&col!=='_cromatografia'&&equilON&&colDates.length){
-      const myEquilDate=prevDay(colDates[0]);
-      // minha véspera x coluna que o outro já usa naquele dia
-      if(b.comboColumn===col&&conflitaNoTempo([myEquilDate],'noite',null,null,bColDates,bEffColPeriod||b.period,bHr.ini,bHr.fim))
-        return `${eqNameEsc(col)} está reservada em ${fmtBR(myEquilDate)} por ${esc(b.user)} — não é possível equilibrar na noite anterior.`;
-      if(b.equipment===col&&conflitaNoTempo([myEquilDate],'noite',null,null,bAktaDates,b.period,bHr.ini,bHr.fim))
-        return `${eqNameEsc(col)} está reservada em ${fmtBR(myEquilDate)} por ${esc(b.user)} — não é possível equilibrar na noite anterior.`;
-      // minha véspera x véspera de outra reserva
-      if(bEquil&&bEquil.col===col&&bEquil.date===myEquilDate)
-        return `${eqNameEsc(col)} já está em equilibração na noite de ${fmtBR(myEquilDate)} por ${esc(b.user)}.`;
+    const meuEquil=equilON?equilEmMontagem(eq,col,colDates,effColPeriod,s,equilStart):null;
+
+    if(meuEquil){
+      for(const alvo of equipDaEquil(meuEquil)){
+        if(b.equipment===alvo&&equilBateCom(meuEquil,bAktaDates,b.period,bHr.ini,bHr.fim))
+          return `${eqNameEsc(alvo)} está reservado por ${esc(b.user)} na noite de ${fmtBR(meuEquil.date)} — não dá para equilibrar a partir das ${esc(meuEquil.horaIni)}.`;
+        if(b.comboColumn===alvo&&equilBateCom(meuEquil,bColDates,bEffColPeriod||b.period,bHr.ini,bHr.fim))
+          return `${eqNameEsc(alvo)} está reservada por ${esc(b.user)} na noite de ${fmtBR(meuEquil.date)} — não dá para equilibrar a partir das ${esc(meuEquil.horaIni)}.`;
+        if(bEquil&&equipDaEquil(bEquil).includes(alvo)
+           &&conflitaNoTempo(meuEquil.dias,'multidias',meuEquil.horaIni,meuEquil.horaFim,
+                             bEquil.dias,'multidias',bEquil.horaIni,bEquil.horaFim))
+          return `${eqNameEsc(alvo)} já está em equilibração na noite de ${fmtBR(bEquil.date)} por ${esc(b.user)}.`;
+      }
     }
-    // véspera de outra reserva x minha reserva da coluna
-    if(bEquil&&col&&bEquil.col===col&&conflitaNoTempo(colDates,effColPeriod,s,e,[bEquil.date],'noite',null,null))
-      return `${eqNameEsc(col)} estará em equilibração na noite de ${fmtBR(bEquil.date)} para a reserva de ${esc(b.user)}.`;
-    if(bEquil&&bEquil.col===eq&&conflitaNoTempo(aktaDates,period,s,e,[bEquil.date],'noite',null,null))
-      return `${eqNameEsc(eq)} estará em equilibração na noite de ${fmtBR(bEquil.date)} para a reserva de ${esc(b.user)}.`;
+
+    // A equilibração do outro contra a minha reserva comum
+    if(bEquil){
+      for(const alvo of equipDaEquil(bEquil)){
+        if(eq===alvo&&equilBateCom(bEquil,aktaDates,period,s,e))
+          return `${eqNameEsc(alvo)} fica em equilibração a partir das ${esc(bEquil.horaIni)} de ${fmtBR(bEquil.date)}, para a corrida de ${esc(b.user)} no dia seguinte.`;
+        if(col===alvo&&equilBateCom(bEquil,colDates,effColPeriod,s,e))
+          return `${eqNameEsc(alvo)} fica em equilibração a partir das ${esc(bEquil.horaIni)} de ${fmtBR(bEquil.date)}, para a corrida de ${esc(b.user)} no dia seguinte.`;
+      }
+    }
 
     // Check if new booking is a column and conflicts with existing
     const eObj=eqById(eq);
@@ -2896,7 +3036,8 @@ async function saveBooking(){
   if(col&&selectedColPeriod==='multidias'&&(!colDateStart||!colDateEnd)){ showConflict('Informe as datas de uso da coluna.'); return; }
 
   const equilONVal=document.getElementById('bk-equil-on')?.checked||false;
-  const conflict=checkConflict(date,selectedPeriod,st,en,eq,col,editingId,dateStart,dateEnd,selectedColPeriod,colDateStart,colDateEnd,equilONVal,shakerEndDate);
+  const equilStartVal=document.getElementById('bk-equil-time')?.value||EQUIL_PADRAO;
+  const conflict=checkConflict(date,selectedPeriod,st,en,eq,col,editingId,dateStart,dateEnd,selectedColPeriod,colDateStart,colDateEnd,equilONVal,shakerEndDate,equilStartVal);
   if(conflict){ showConflict(conflict); return; }
 
   // Equipamento fora de operação: ninguém reserva até ser resolvido.
@@ -2975,6 +3116,7 @@ Deseja continuar?`))return;
     equipment:eq,
     comboColumn:col||null,
     equilON:document.getElementById('bk-equil-on')?.checked||false,
+    equilStart:document.getElementById('bk-equil-time')?.value||EQUIL_PADRAO,
     shakerStartDate:isShaker?mainDate:null, // sempre igual a 'date': ver mainDate acima
     colPeriod:col?selectedColPeriod:null,
     colDateStart:col&&selectedColPeriod==='multidias'?colDateStart:null,
@@ -4142,7 +4284,7 @@ function openDayPopup(ds){
     body.innerHTML = bks.map(b=>{
       const e=eqById(b.equipment);
       const cat=e?e.cat:'outro';
-      const time=rotuloPeriodo(b);
+      const time=rotuloNoDia(b,ds);
       const ocup=ocupacaoNoDia(b,ds);
       return `<div class="day-bk-item" onclick="closeDayPopup();openEdit('${b.id}')">
         <div class="day-bk-top">
