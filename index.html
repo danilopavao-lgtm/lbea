@@ -181,7 +181,7 @@
 .badge-rej{background:var(--red-light);color:var(--red)}
 .reserva-item.is-pending{border-left:3px solid var(--amber);border-style:dashed}
 .reserva-item.is-rejected{opacity:.6}
-.ev-pend{--ev-cor:var(--amber);border-left-style:dashed;opacity:.85}
+.ev-pend{border-left-style:dashed;opacity:.8}   /* herda o matiz do equipamento */
 
 .eq-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:0.5px solid var(--border)}
 .eq-row:last-child{border-bottom:none}
@@ -354,15 +354,30 @@ select option{background:var(--bg2);color:var(--text)}
 .ev-equil{--ev-cor:var(--green);border-left-style:dotted;border-left-width:4px;font-style:italic}
 .ev-itc{--ev-cor:var(--amber)}
 .ev-other{--ev-cor:var(--gray)}
-.ev-manut{--ev-cor:var(--amber);font-style:italic}
+.ev-manut{--ev-cor:var(--amber);font-style:italic}  /* âmbar agora é só manutenção */
 .ev-more{font-size:10px;color:var(--text2);white-space:nowrap;
   padding-left:5px;flex:none;font-weight:500}
 /* Legenda: sem ela a cor não informa nada a quem chega novo no sistema. */
 .cal-legenda{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;
   margin-top:8px;font-size:11px;color:var(--text2);flex:none}
-.cal-legenda i{display:inline-block;width:9px;height:9px;border-radius:2px;
-  margin-right:5px;vertical-align:-1px;background:var(--lg-cor)}
-.cal-legenda span{white-space:nowrap}
+/* A amostra tem de ser um chip em miniatura: quadradinho de 9px com borda
+   pontilhada não mostra a diferença entre pontilhado e tracejado. */
+.cal-legenda i{display:inline-block;width:16px;height:12px;border-radius:2px;
+  margin-right:5px;vertical-align:-2px;
+  border-left:3px solid var(--lg-cor);
+  background:color-mix(in srgb,var(--lg-cor) 16%,transparent)}
+/* Amostra de SITUAÇÃO vai sem preenchimento: preenchida em cinza, ficava
+   igual à de "Demais" e a pessoa lia a cor em vez do traço. */
+.cal-legenda i.lg-pont,
+.cal-legenda i.lg-trac{background:transparent;border:1px solid var(--border2)}
+.cal-legenda i.lg-pont{border-left:4px dotted var(--text2)}
+.cal-legenda i.lg-trac{border-left:3px dashed var(--text2)}
+.cal-legenda span{white-space:nowrap;display:inline-flex;align-items:center}
+.cal-legenda b{font-weight:600;color:var(--text);font-size:10.5px;
+  text-transform:uppercase;letter-spacing:.04em;opacity:.7}
+.cal-legenda em{font-style:italic}
+.cal-legenda .lg-sep{width:1px;height:13px;background:var(--border2);
+  margin:0 2px;padding:0}
 
 /* Modal */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.32);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
@@ -773,12 +788,15 @@ select option{background:var(--bg2);color:var(--text)}
         </div>
         <div class="cal-grid" id="cal-grid"></div>
         <div class="cal-legenda" aria-hidden="true">
+          <b>Equipamento</b>
           <span style="--lg-cor:var(--blue)"><i></i>ÄKTA</span>
           <span style="--lg-cor:var(--green)"><i></i>Coluna</span>
-          <span style="--lg-cor:var(--amber)"><i></i>ITC</span>
-          <span style="--lg-cor:var(--gray)"><i></i>Outros</span>
-          <span style="--lg-cor:var(--green)"><i style="border-left:3px dotted var(--green);background:color-mix(in srgb,var(--green) 13%,transparent);border-radius:2px;width:11px"></i>Equilibração noturna</span>
-          <span style="--lg-cor:var(--amber)"><i style="border:1px dashed var(--amber);background:transparent"></i>Aguardando aprovação</span>
+          <span style="--lg-cor:var(--gray)"><i></i>Demais</span>
+          <span class="lg-sep"></span>
+          <b>Situação</b>
+          <span style="--lg-cor:var(--text2)"><i class="lg-pont"></i>Equilibrando</span>
+          <span style="--lg-cor:var(--text2)"><i class="lg-trac"></i>Aguardando aprovação</span>
+          <span style="--lg-cor:var(--amber)"><i></i><em>Manutenção</em></span>
         </div>
       </div>
 
@@ -2023,7 +2041,11 @@ function calCell(dt,dim,today,maxChips){
     const cat=e?e.cat:'outro';
     const eqShort=short(b.equipment);
     const label=b.comboColumn&&b.comboColumn!=='_cromatografia'?eqShort+'+':eqShort;
-    const evCls=b.pending?'ev-pend':(b.bookingType==='manutencao'?'ev-manut':evClass(cat));
+    // Matiz = equipamento, traço = situação. Pendente soma o tracejado ao
+    // matiz do equipamento em vez de trocá-lo, senão perde-se a informação
+    // de QUAL equipamento está em jogo — que é o que se procura de relance.
+    const evCls=b.bookingType==='manutencao' ? 'ev-manut'
+              : evClass(cat)+(b.pending?' ev-pend':'');
     const evLabel=b.bookingType==='manutencao'
       ? (ico('wrench','ico-xs')+' '+label)
       : ((b.pending?ico('clock','ico-xs')+' ':'')+label+(telaEstreita()?'':' · '+userShort));
